@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">美丰客户中心</string>
+    <string name="app_version">版本：1.0.0</string>
+
+    <!-- 通用 -->
+    <string name="loading">加载中…</string>
+    <string name="empty_data">没有数据~</string>
+    <string name="network_error">网络异常，请检查后重试</string>
+    <string name="confirm">确定</string>
+    <string name="cancel">取消</string>
+    <string name="save">保存</string>
+    <string name="delete">删除</string>
+    <string name="edit">编辑</string>
+    <string name="disable">禁用</string>
+    <string name="enable">启用</string>
+    <string name="query">查询</string>
+    <string name="clean">清空</string>
+
+    <!-- 登录 -->
+    <string name="login_corp_hint">客户代码</string>
+    <string name="login_user_hint">请输入用户名</string>
+    <string name="login_pwd_hint">请输入密码</string>
+    <string name="login_btn">登录</string>
+    <string name="login_btn_modify">修改</string>
+    <string name="login_input_uncheck">所有选项必录</string>
+    <string name="login_input_inconsistent">请确认密码是否一致</string>
+    <string name="login_missing_field">缺少关键字段，请重新登录</string>
+    <string name="login_phone_bind_fail">未成功绑定手机号，请重新进入小程序并登录！</string>
+
+    <!-- mime -->
+    <string name="mime_loading">菜单加载中…</string>
+    <string name="mime_view_or_edit">查看或编辑个人主页</string>
+    <string name="menu_all_outstock">全部出库单</string>
+    <string name="menu_new_outstock">新增出库</string>
+    <string name="menu_all_customer">全部客户</string>
+    <string name="menu_my_center">个人中心</string>
+
+    <!-- manager -->
+    <string name="manager_avatar">头像</string>
+    <string name="manager_parent_corp">上级公司</string>
+    <string name="manager_corp_name">公司名称</string>
+    <string name="manager_corp_code">公司代码</string>
+    <string name="manager_login_account">登录账号</string>
+    <string name="manager_user_name">用户名称</string>
+    <string name="manager_unbind_confirm">确认要取消绑定吗？</string>
+    <string name="manager_unbind_loading">取消绑定中</string>
+    <string name="manager_unbind_fail">取消绑定失败！</string>
+
+    <!-- ordertotal -->
+    <string name="ot_new_outstock">新建出库单</string>
+    <string name="ot_cust_default">选择查询的出库客户</string>
+    <string name="ot_date_start">业务日期起</string>
+    <string name="ot_date_end">业务日期止</string>
+    <string name="ot_tab_all">全部订单</string>
+    <string name="ot_tab_pending">待出库</string>
+    <string name="ot_status">状态:</string>
+    <string name="ot_status_shipped">已出库</string>
+    <string name="ot_type">类型:</string>
+    <string name="ot_view">查看</string>
+    <string name="ot_outstock">出库</string>
+    <string name="ot_ship_ok">发货成功！</string>
+    <string name="ot_ship_data_err">数据提交错误！</string>
+    <string name="ot_ship_partial_fail">部分条码状态不允许出库！</string>
+
+    <!-- goodlist -->
+    <string name="gl_cust_code">客户代码:</string>
+    <string name="gl_cust_name">客户名称:</string>
+    <string name="gl_date">日期:</string>
+    <string name="gl_status">状态:</string>
+    <string name="gl_type">类型:</string>
+    <string name="gl_outstock">出库</string>
+    <string name="gl_delete">删除</string>
+    <string name="gl_delete_confirm">确认删除该整张出库单吗？</string>
+    <string name="gl_loading">正在加载...</string>
+    <string name="gl_deleting_item">正在删除明细...</string>
+    <string name="gl_deleting_order">正在删除出库单...</string>
+    <string name="gl_confirming">正在生成出库单...</string>
+    <string name="gl_tip_billid_empty">物流码、出库单号不能为空，请尝试重新打开当前页面！</string>
+    <string name="gl_tip_status_block">当前单据状态无法删除，删除失败！</string>
+
+    <!-- orderConfirm -->
+    <string name="oc_cust_default">请选择出库客户</string>
+    <string name="oc_date_label">业务日期</string>
+    <string name="oc_billtype_ckd">出库单</string>
+    <string name="oc_billtype_tkd">退库单</string>
+    <string name="oc_remark_hint">单据说明</string>
+    <string name="oc_remark_label">备注</string>
+    <string name="oc_input_hint">请输入需要添加的防串码</string>
+    <string name="oc_btn_scan">扫码</string>
+    <string name="oc_btn_save">保存</string>
+    <string name="oc_btn_paste">粘贴并导入</string>
+    <string name="oc_btn_faststock">查询收货单出库</string>
+    <string name="oc_save_confirm">是否进行出库？</string>
+    <string name="oc_scan_placeholder">扫码功能待对接</string>
+    <string name="oc_tip_code_empty">提交数据为空！</string>
+    <string name="oc_tip_code_unavail">条码不可用！</string>
+    <string name="oc_tip_not_received">未确认收货，请先确认收货！</string>
+    <string name="oc_tip_code_exists">条码已存在！</string>
+    <string name="oc_tip_cust_mismatch">当前客户非当前经销商对应客户，请重新选择客户！</string>
+    <string name="oc_tip_no_code">请输入防串码！</string>
+    <string name="oc_tip_clipboard_empty">没有复制成功，请重新复制粘贴</string>
+    <string name="oc_tip_clipboard_fail">读取剪切板失败，请重新复制</string>
+    <string name="oc_tip_import_fail">导入失败：内容无效</string>
+    <string name="oc_tip_partial">存在不可用条码，可用条码已导入，请核对库存！</string>
+    <string name="oc_tip_no_avail">无可用条码！请核对真实库存！</string>
+    <string name="oc_tip_all_imported">所有箱码已导入！</string>
+    <string name="oc_tip_recv_empty">未获取到该单箱码明细，请扫码录入!</string>
+    <string name="oc_tip_recv_empty2">未获取到该单箱码明细,请扫码!</string>
+    <string name="oc_faststock_confirm">点击后，会清空以上数据，是否跳转？</string>
+
+    <!-- receiveList -->
+    <string name="rl_search_hint">产品代码或名称：</string>
+    <string name="rl_type_label">类型:</string>
+    <string name="rl_code_label">单号:</string>
+    <string name="rl_salestatus_label">出库状态:</string>
+    <string name="rl_salestatus_unship">未出库</string>
+    <string name="rl_salestatus_partial">部分出库</string>
+    <string name="rl_salestatus_full">完全出库</string>
+    <string name="rl_view">查看</string>
+    <string name="rl_btn_gen">出库</string>
+    <string name="rl_address">发货地址：</string>
+    <string name="rl_contact">联系人：</string>
+    <string name="rl_tel">联系电话：</string>
+    <string name="rl_gen_confirm">点击后，会覆盖出库未保存的缓存数据，是否生成？</string>
+
+    <!-- receiveDetail -->
+    <string name="rd_cust_code">客户代码:</string>
+    <string name="rd_cust_name">客户名称:</string>
+    <string name="rd_order_no">订单号:</string>
+    <string name="rd_date">日期:</string>
+    <string name="rd_type">类型:</string>
+
+    <!-- addressManager -->
+    <string name="am_new_customer">新建客户</string>
+    <string name="am_search_hint">客户名或姓名搜索：</string>
+    <string name="am_tab_enable">启用客户</string>
+    <string name="am_tab_disable">禁用客户</string>
+    <string name="am_delete_confirm">确认删除或禁用该客户？注意：如果该客户产生业务数据，自动禁用，不删除。</string>
+    <string name="am_enable_confirm">确认启用该客户？</string>
+    <string name="am_tip_data_err">提交数据错误</string>
+    <string name="am_tip_biz_done">已发生业务，无法删除</string>
+    <string name="am_tip_delete_fail">删除失败</string>
+    <string name="am_tip_no_data">无客户数据，无法启用</string>
+
+    <!-- addressAdd -->
+    <string name="aa_corp_code">公司代码</string>
+    <string name="aa_corp_code_auto">系统自动生成</string>
+    <string name="aa_corp_name">公司名称</string>
+    <string name="aa_legal">法人/负责人</string>
+    <string name="aa_phone">负责人手机</string>
+    <string name="aa_address">公司地址</string>
+    <string name="aa_required">所有选项必录</string>
+    <string name="aa_save_fail">保存失败</string>
+    <string name="aa_data_err">提交数据错误</string>
+    <string name="aa_data_load_fail">数据读取失败</string>
+    <string name="aa_phone_err">手机号码格式错误</string>
+    <string name="aa_required_mark">*必填</string>
+</resources>

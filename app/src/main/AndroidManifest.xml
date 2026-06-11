@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+
+    <application
+        android:name=".MfApplication"
+        android:allowBackup="true"
+        android:dataExtractionRules="@xml/backup_rules"
+        android:fullBackupContent="@xml/backup_rules"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:networkSecurityConfig="@xml/network_security_config"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.MfPda"
+        android:usesCleartextTraffic="false">
+
+        <activity
+            android:name=".ui.login.LoginActivity"
+            android:exported="true"
+            android:windowSoftInputMode="stateVisible|adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <activity android:name=".ui.mime.MimeActivity" android:exported="false" />
+        <activity android:name=".ui.manager.ManagerActivity" android:exported="false" />
+        <activity android:name=".ui.modifyPW.ModifyPwActivity" android:exported="false" />
+        <activity android:name=".ui.ordertotal.OrdertotalActivity" android:exported="false" />
+        <activity android:name=".ui.goodlist.GoodlistActivity" android:exported="false" />
+        <activity android:name=".ui.orderConfirm.OrderConfirmActivity"
+            android:exported="false"
+            android:windowSoftInputMode="stateVisible|adjustResize" />
+        <activity android:name=".ui.receiveList.ReceiveListActivity" android:exported="false" />
+        <activity android:name=".ui.receiveDetail.ReceiveDetailActivity" android:exported="false" />
+        <activity android:name=".ui.addressManager.AddressManagerActivity" android:exported="false" />
+        <activity android:name=".ui.addressAdd.AddressAddActivity" android:exported="false" />
+    </application>
+</manifest>

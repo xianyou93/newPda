@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 主色：美丰绿 -->
+    <color name="primary">#1FAE54</color>
+    <color name="primary_dark">#178A43</color>
+    <color name="primary_light">#5BC681</color>
+    <color name="accent">#FF5722</color>
+
+    <!-- 文本 -->
+    <color name="text_primary">#1F1F1F</color>
+    <color name="text_secondary">#666666</color>
+    <color name="text_hint">#999999</color>
+    <color name="text_white">#FFFFFF</color>
+    <color name="text_red">#E40D0D</color>
+
+    <!-- 背景 -->
+    <color name="bg_page">#F0F2F5</color>
+    <color name="bg_card">#FFFFFF</color>
+    <color name="bg_line">#EBEBEB</color>
+    <color name="bg_divider">#EFEFF4</color>
+
+    <!-- 状态色 -->
+    <color name="status_pending">#FF8C00</color>
+    <color name="status_partial">#2961E9</color>
+    <color name="status_full">#29AC24</color>
+
+    <!-- 按钮 -->
+    <color name="btn_red">#E40D0D</color>
+    <color name="btn_green">#9ACD32</color>
+    <color name="btn_blue">#4261E9</color>
+    <color name="btn_orange">#FFA500</color>
+    <color name="btn_warn">#DD3A40</color>
+
+    <!-- 退库单背景 -->
+    <color name="bg_tkd">#FFFF00</color>
+</resources>
