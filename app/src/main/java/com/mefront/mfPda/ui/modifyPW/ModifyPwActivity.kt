@@ -55,7 +55,7 @@ class ModifyPwActivity : BaseActivity() {
                     MfUi.toast(this, "修改成功")
                     finish()
                 } else {
-                    MfUi.toast(this, R.string.network_error)
+                    MfUi.toast(this, "修改失败，请重试")
                 }
             }
         }

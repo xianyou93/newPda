@@ -32,5 +32,5 @@
     <color name="btn_warn">#DD3A40</color>
 
     <!-- 退库单背景 -->
-    <color name="bg_tkd">#FFFF00</color>
+    <color name="bg_tkd">#FFA500</color>
 </resources>

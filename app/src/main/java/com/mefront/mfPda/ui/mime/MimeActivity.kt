@@ -44,7 +44,7 @@ class MimeActivity : BaseActivity() {
             startActivity(Intent(this, OrdertotalActivity::class.java).putExtra("id", 0))
         }
         b.menuNew.setOnClickListener {
-            startActivity(Intent(this, OrderConfirmActivity::class.java))
+            startActivity(Intent(this, OrderConfirmActivity::class.java).putExtra("type", "1"))
         }
         b.menuCustomer.setOnClickListener {
             startActivity(Intent(this, AddressManagerActivity::class.java))

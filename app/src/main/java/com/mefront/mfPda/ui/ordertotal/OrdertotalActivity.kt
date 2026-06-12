@@ -2,6 +2,7 @@ package com.mefront.mfPda.ui.ordertotal
 
 import android.content.Intent
 import android.os.Bundle
+import android.graphics.Color
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -32,6 +33,9 @@ class OrdertotalActivity : BaseActivity() {
     private var currentTab: Int = 0     // 0 全部订单 / 1 待出库
     private var pageNo: Int = 1
     private var loading: Boolean = false
+    private var needRefresh: Boolean = true
+    private var loadVersion: Int = 0   // 请求版本号，丢弃旧请求的响应
+    private var currentCustCode: String = ""  // 当前查询的客户代码，与小程序 customInfo.code 对应
 
     override fun title(): CharSequence = "出库单列表"
 
@@ -52,6 +56,7 @@ class OrdertotalActivity : BaseActivity() {
                     currentTab = idx
                     data.clear()
                     pageNo = 1
+                    loadVersion++  // 作废旧请求
                     adapter.notifyDataSetChanged()
                     load()
                 }
@@ -67,10 +72,12 @@ class OrdertotalActivity : BaseActivity() {
         b.etEnd.setOnClickListener { pickDate(b.etEnd) }
 
         b.btnNewOutstock.setOnClickListener {
+            needRefresh = true
             startActivity(Intent(this, OrderConfirmActivity::class.java))
         }
         b.btnClean.setOnClickListener { cleanCustomer() }
         b.custRow.setOnClickListener {
+            needRefresh = true
             startActivity(Intent(this, AddressManagerActivity::class.java))
         }
         b.list.layoutManager = LinearLayoutManager(this)
@@ -91,45 +98,55 @@ class OrdertotalActivity : BaseActivity() {
         super.onResume()
         val custom = SpCache.getCustom2()
         if (custom != null) {
+            currentCustCode = custom["code"]?.toString() ?: ""
             b.tvCust.text = "${custom["code"] ?: ""} ${custom["name"] ?: ""} ${custom["LegalPerson"] ?: ""}"
+            SpCache.setCustom2(null)
         } else {
+            currentCustCode = ""
             b.tvCust.text = getString(R.string.ot_cust_default)
         }
-        data.clear()
-        pageNo = 1
-        adapter.notifyDataSetChanged()
-        load()
-        // 出库单列表用到的 custom2 在 onShow 读完后立即清（与原 wx 行为一致）
-        SpCache.setCustom2(null)
+        if (needRefresh) {
+            data.clear()
+            pageNo = 1
+            loadVersion++  // 作废旧请求
+            adapter.notifyDataSetChanged()
+            load()
+        }
+        needRefresh = false
     }
 
     private fun cleanCustomer() {
         SpCache.setCustom2(null)
+        currentCustCode = ""
         b.tvCust.text = getString(R.string.ot_cust_default)
+        needRefresh = true
         data.clear()
         pageNo = 1
+        loadVersion++  // 作废旧请求
         adapter.notifyDataSetChanged()
         load()
     }
 
     private fun load() {
         loading = true
+        val version = loadVersion
         val status = if (currentTab == 0) "" else "制单"
-        val cust = SpCache.getCustom2()
         Net.req("orderapi/orderlist",
             mapOf(
                 "ordersn" to "1",
                 "status" to status,
                 "pageNo" to pageNo,
-                "cusCode" to (cust?.get("code")?.toString() ?: ""),
+                "cusCode" to currentCustCode,
                 "startDate" to b.etStart.text.toString(),
                 "endDate" to b.etEnd.text.toString()
             )
-        ) { err, res -> handle(err, res) }
+        ) { err, res -> handle(err, res, version) }
     }
 
-    private fun handle(err: Throwable?, res: ApiResponse?) {
+    private fun handle(err: Throwable?, res: ApiResponse?, version: Int) {
         runOnUiThread {
+            // 丢弃旧请求的响应
+            if (version != loadVersion) return@runOnUiThread
             loading = false
             b.loadingBox.root.visibility = View.GONE
             if (err != null || res == null) {
@@ -141,8 +158,11 @@ class OrdertotalActivity : BaseActivity() {
             }
             val arr = res.dataJson ?: return@runOnUiThread
             if (arr.length() == 0) {
-                b.tvEmpty.root.visibility = View.VISIBLE
-                b.tvEmpty.root.text = getString(R.string.empty_data)
+                // 只有第一页空数据才显示"没有数据"，后续页空表示没有更多
+                if (pageNo == 1) {
+                    b.tvEmpty.root.visibility = View.VISIBLE
+                    b.tvEmpty.root.text = getString(R.string.empty_data)
+                }
                 return@runOnUiThread
             }
             b.tvEmpty.root.visibility = View.GONE
@@ -168,14 +188,28 @@ class OrdertotalActivity : BaseActivity() {
     }
 
     private fun pickDate(tv: TextView) {
+        // 从 TextView 当前文本解析日期，解析失败则用今天
+        val text = tv.text.toString()
+        val parts = text.split("-")
         val cal = java.util.Calendar.getInstance()
+        var year = cal.get(java.util.Calendar.YEAR)
+        var month = cal.get(java.util.Calendar.MONTH)
+        var day = cal.get(java.util.Calendar.DAY_OF_MONTH)
+        if (parts.size == 3) {
+            try {
+                year = parts[0].toInt()
+                month = parts[1].toInt() - 1
+                day = parts[2].toInt()
+            } catch (_: NumberFormatException) {}
+        }
         val dlg = android.app.DatePickerDialog(this, { _, y, m, d ->
             tv.text = String.format("%04d-%02d-%02d", y, m + 1, d)
             data.clear()
             pageNo = 1
+            loadVersion++  // 作废旧请求
             adapter.notifyDataSetChanged()
             load()
-        }, cal.get(java.util.Calendar.YEAR), cal.get(java.util.Calendar.MONTH), cal.get(java.util.Calendar.DAY_OF_MONTH))
+        }, year, month, day)
         dlg.datePicker.calendarViewShown = false
         dlg.datePicker.spinnersShown = true
         dlg.show()
@@ -216,6 +250,16 @@ class OrdertotalActivity : BaseActivity() {
             val r = data[position]
             h.tvState.text = "状态:${r.state}"
             h.tvType.text = "类型:${r.billType}"
+            // 状态颜色：与微信小程序一致
+            val stateColor = when (r.state) {
+                "制单" -> Color.parseColor("#C91414")       // 红色 - 未出库
+                "已出库" -> Color.parseColor("#29AC24")     // 绿色 - 完全出库
+                "部分出库" -> Color.parseColor("#1417C9")   // 蓝色 - 部分出库
+                "已收货" -> Color.parseColor("#29AC24")      // 绿色 - 已完成
+                "已退库" -> Color.parseColor("#29AC24")     // 绿色 - 已完成
+                else -> Color.parseColor("#666666")
+            }
+            h.tvState.setTextColor(stateColor)
             h.tvName.text = r.name
             h.tvQty.text = "${r.qty}件"
             h.tvDate.text = r.makedate
@@ -229,6 +273,7 @@ class OrdertotalActivity : BaseActivity() {
     }
 
     private fun goView(billid: String) {
+        needRefresh = true
         startActivity(Intent(this, GoodlistActivity::class.java).putExtra("billid", billid))
     }
 
@@ -239,7 +284,7 @@ class OrdertotalActivity : BaseActivity() {
                 when (res.result?.toString()) {
                     "1" -> {
                         MfUi.toast(this, R.string.ot_ship_ok)
-                        data.clear(); pageNo = 1; load()
+                        data.clear(); pageNo = 1; loadVersion++; load()
                     }
                     "0" -> MfUi.toast(this, R.string.ot_ship_data_err)
                     "2" -> MfUi.toast(this, R.string.ot_ship_partial_fail)

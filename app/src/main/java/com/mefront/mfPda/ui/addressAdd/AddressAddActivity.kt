@@ -80,7 +80,8 @@ class AddressAddActivity : BaseActivity() {
                 MfUi.hideLoading()
                 if (err != null || res == null) { MfUi.toast(this, R.string.aa_data_load_fail); return@runOnUiThread }
                 if (!res.ok) { MfUi.toast(this, R.string.aa_data_load_fail); return@runOnUiThread }
-                val o = res.dataJson?.optJSONObject(0) ?: JSONObject()
+                // 后端 getcustom 返回 data 为对象（Custom.get(0)），优先用 dataObject，兼容 dataJson 数组
+                val o = res.dataObject ?: res.dataJson?.optJSONObject(0) ?: JSONObject()
                 this.code = o.optString("Code", code)
                 b.tvCode.text = this.code
                 b.etName.setText(o.optString("Name", ""))

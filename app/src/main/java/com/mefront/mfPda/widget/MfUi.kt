@@ -2,6 +2,7 @@ package com.mefront.mfPda.widget
 
 import android.app.Activity
 import android.app.AlertDialog
+import android.app.Dialog
 import android.content.Context
 import android.view.LayoutInflater
 import android.view.View
@@ -23,8 +24,7 @@ object MfUi {
     }
 
     /**
-     * 对应 wx.showModal(title, content, success)。
-     * 取消时 cancel 回调可为 null。
+     * 自定义确认对话框（圆角、主题色按钮、居中排版）。
      */
     fun confirm(
         act: Activity,
@@ -36,19 +36,38 @@ object MfUi {
         cancelText: String = "取消"
     ) {
         if (act.isFinishing || act.isDestroyed) return
-        AlertDialog.Builder(act, R.style.MfDialog)
-            .setTitle(title)
-            .setMessage(content ?: "")
-            .setPositiveButton(confirmText) { d, _ ->
-                d.dismiss()
-                onConfirm()
-            }
-            .setNegativeButton(cancelText) { d, _ ->
-                d.dismiss()
-                onCancel?.invoke()
-            }
-            .setCancelable(true)
-            .show()
+        val view = LayoutInflater.from(act).inflate(R.layout.dialog_confirm, null, false)
+        val tvTitle = view.findViewById<TextView>(R.id.tv_title)
+        val tvContent = view.findViewById<TextView>(R.id.tv_content)
+        val btnConfirm = view.findViewById<TextView>(R.id.btn_confirm)
+        val btnCancel = view.findViewById<TextView>(R.id.btn_cancel)
+
+        tvTitle.text = title
+        btnConfirm.text = confirmText
+        btnCancel.text = cancelText
+
+        if (!content.isNullOrBlank()) {
+            tvContent.text = content
+            tvContent.visibility = View.VISIBLE
+        } else {
+            tvContent.visibility = View.GONE
+        }
+
+        val dialog = Dialog(act, R.style.MfDialog)
+        dialog.setContentView(view)
+        dialog.setCancelable(true)
+        dialog.setCanceledOnTouchOutside(true)
+
+        btnConfirm.setOnClickListener {
+            dialog.dismiss()
+            onConfirm()
+        }
+        btnCancel.setOnClickListener {
+            dialog.dismiss()
+            onCancel?.invoke()
+        }
+
+        dialog.show()
     }
 
     fun confirmRes(
@@ -60,14 +79,38 @@ object MfUi {
     ) = confirm(act, act.getString(titleRes),
         contentRes?.let { act.getString(it) }, onConfirm, onCancel)
 
+    /**
+     * 自定义提示对话框（单按钮）。
+     */
     fun alert(act: Activity, title: String, content: String, onDismiss: (() -> Unit)? = null) {
         if (act.isFinishing || act.isDestroyed) return
-        AlertDialog.Builder(act, R.style.MfDialog)
-            .setTitle(title)
-            .setMessage(content)
-            .setPositiveButton("确定") { d, _ -> d.dismiss(); onDismiss?.invoke() }
-            .setCancelable(true)
-            .show()
+        val view = LayoutInflater.from(act).inflate(R.layout.dialog_confirm, null, false)
+        val tvTitle = view.findViewById<TextView>(R.id.tv_title)
+        val tvContent = view.findViewById<TextView>(R.id.tv_content)
+        val btnConfirm = view.findViewById<TextView>(R.id.btn_confirm)
+        val btnCancel = view.findViewById<TextView>(R.id.btn_cancel)
+
+        tvTitle.text = title
+        tvContent.text = content
+        tvContent.visibility = View.VISIBLE
+        btnConfirm.text = "我知道了"
+        btnCancel.visibility = View.GONE
+        // 隐藏分割线（cancel 隐藏后，confirm 占满宽度）
+        view.findViewById<View>(R.id.btn_cancel)?.let {
+            it.visibility = View.GONE
+        }
+
+        val dialog = Dialog(act, R.style.MfDialog)
+        dialog.setContentView(view)
+        dialog.setCancelable(true)
+        dialog.setCanceledOnTouchOutside(true)
+
+        btnConfirm.setOnClickListener {
+            dialog.dismiss()
+            onDismiss?.invoke()
+        }
+
+        dialog.show()
     }
 
     private var loadingDialog: AlertDialog? = null

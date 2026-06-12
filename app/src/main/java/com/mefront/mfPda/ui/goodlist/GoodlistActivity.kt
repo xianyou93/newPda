@@ -117,8 +117,6 @@ class GoodlistActivity : BaseActivity() {
 
     private fun rowDelete(code: String) {
         MfUi.showLoading(this, getString(R.string.gl_deleting_item))
-        list.clear()
-        b.list.adapter?.notifyDataSetChanged()
         Net.req("orderapi/delcode", mapOf("billid" to billid, "scancode" to code)) { err, res ->
             runOnUiThread {
                 MfUi.hideLoading()
@@ -126,6 +124,7 @@ class GoodlistActivity : BaseActivity() {
                 when (res.result?.toString()) {
                     "1" -> {
                         val arr = res.dataJson
+                        list.clear()
                         if (arr != null) {
                             for (i in 0 until arr.length()) list.add(arr.getJSONObject(i))
                         }

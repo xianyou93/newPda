@@ -25,6 +25,7 @@ import com.mefront.mfPda.ui.receiveList.ReceiveListActivity
 import com.mefront.mfPda.ui.ordertotal.OrdertotalActivity
 import com.mefront.mfPda.util.DateUtil
 import com.mefront.mfPda.widget.MfUi
+import org.json.JSONArray
 import org.json.JSONObject
 
 /**
@@ -69,6 +70,7 @@ class OrderConfirmActivity : BaseActivity() {
 
         b.list.layoutManager = LinearLayoutManager(this)
         b.list.adapter = ListAdapter(orderData)
+        b.list.setHasFixedSize(true)
 
         b.rgBilltype.setOnCheckedChangeListener { _, id ->
             billtype = if (id == R.id.rb_ckd) "ckd" else "tkd"
@@ -119,11 +121,24 @@ class OrderConfirmActivity : BaseActivity() {
     }
 
     private fun pickDate() {
+        // 从 TextView 当前文本解析日期，解析失败则用今天
+        val text = b.tvDate.text.toString()
+        val parts = text.split("-")
         val cal = java.util.Calendar.getInstance()
+        var year = cal.get(java.util.Calendar.YEAR)
+        var month = cal.get(java.util.Calendar.MONTH)
+        var day = cal.get(java.util.Calendar.DAY_OF_MONTH)
+        if (parts.size == 3) {
+            try {
+                year = parts[0].toInt()
+                month = parts[1].toInt() - 1
+                day = parts[2].toInt()
+            } catch (_: NumberFormatException) {}
+        }
         val dlg = android.app.DatePickerDialog(this, { _, y, m, d ->
             date = String.format("%04d-%02d-%02d", y, m + 1, d)
             b.tvDate.text = date
-        }, cal.get(java.util.Calendar.YEAR), cal.get(java.util.Calendar.MONTH), cal.get(java.util.Calendar.DAY_OF_MONTH))
+        }, year, month, day)
         dlg.datePicker.calendarViewShown = false
         dlg.datePicker.spinnersShown = true
         dlg.show()
@@ -137,26 +152,59 @@ class OrderConfirmActivity : BaseActivity() {
         MfUi.showLoading(this)
         Net.req("receive/getReceiveDetail", mapOf("billid" to billid)) { err, res ->
             runOnUiThread {
-                MfUi.hideLoading()
-                if (err != null || res == null) { MfUi.toast(this, R.string.network_error); return@runOnUiThread }
-                if (res.ok) {
-                    val arr = res.dataJson
-                    if (arr != null && arr.length() > 0) {
-                        codeList.clear()
-                        orderData.clear()
-                        for (i in 0 until arr.length()) {
-                            val o = arr.getJSONObject(i)
-                            codeList.add(o.optString("code", ""))
-                            orderData.add(o)
+                if (err != null || res == null) {
+                    MfUi.hideLoading()
+                    MfUi.toast(this, R.string.network_error); return@runOnUiThread
+                }
+                if (!res.ok) {
+                    MfUi.hideLoading()
+                    MfUi.toast(this, R.string.oc_tip_recv_empty2); return@runOnUiThread
+                }
+                val arr = res.dataJson
+                if (arr == null || arr.length() == 0) {
+                    MfUi.hideLoading()
+                    MfUi.toast(this, R.string.oc_tip_recv_empty); return@runOnUiThread
+                }
+                // 提取所有条码
+                val allCodes = mutableListOf<String>()
+                for (i in 0 until arr.length()) {
+                    val code = arr.getJSONObject(i).optString("code", "")
+                    if (code.isNotBlank()) allCodes.add(code)
+                }
+                if (allCodes.isEmpty()) {
+                    MfUi.hideLoading()
+                    MfUi.toast(this, R.string.oc_tip_recv_empty); return@runOnUiThread
+                }
+                // 用 getALLCode 校验可用性，只保留未出库的条码
+                Net.req("orderapi/getALLCode", mapOf("goodnos" to JSONArray(allCodes).toString(), "billtype" to billtype)) { err2, res2 ->
+                    runOnUiThread {
+                        MfUi.hideLoading()
+                        if (err2 != null || res2 == null) { MfUi.toast(this, R.string.network_error); return@runOnUiThread }
+                        val r = res2.result?.toString()
+                        if (r == "1" || r == "2") {
+                            val validated = res2.dataJson
+                            if (validated != null && validated.length() > 0) {
+                                codeList.clear()
+                                orderData.clear()
+                                for (i in 0 until validated.length()) {
+                                    val o = validated.getJSONObject(i)
+                                    val c = o.optString("code", "")
+                                    if (c.isNotBlank()) {
+                                        codeList.add(c)
+                                        orderData.add(o)
+                                    }
+                                }
+                                SpCache.setOrderData(codeList.toList())
+                                b.etInput.setText("")
+                                b.list.adapter?.notifyDataSetChanged()
+                            }
+                            if (r == "2") MfUi.toast(this, R.string.oc_tip_partial)
+                        } else if (r == "3") {
+                            MfUi.toast(this, R.string.oc_tip_no_avail)
+                        } else {
+                            MfUi.toast(this, R.string.oc_tip_recv_empty)
                         }
-                        SpCache.setOrderData(codeList.toList())
-                        b.etInput.setText("")
-                        b.list.adapter?.notifyDataSetChanged()
-                    } else {
-                        MfUi.toast(this, R.string.oc_tip_recv_empty)
                     }
-                } else {
-                    MfUi.toast(this, R.string.oc_tip_recv_empty2)
                 }
             }
         }
@@ -181,9 +229,9 @@ class OrderConfirmActivity : BaseActivity() {
                 if (err != null || res == null) { MfUi.toast(this, R.string.network_error); return@runOnUiThread }
                 when (res.result?.toString()) {
                     "1" -> {
-                        val arr = res.dataJson
-                        if (arr != null && arr.length() > 0) {
-                            val o = arr.getJSONObject(0)
+                        // 后端 getcode 返回 data 是单个对象（非数组），优先用 dataObject
+                        val o = res.dataObject
+                        if (o != null) {
                             codeList.add(code)
                             orderData.add(o)
                             SpCache.setOrderData(codeList.toList())
@@ -231,7 +279,7 @@ class OrderConfirmActivity : BaseActivity() {
             MfUi.toast(this, R.string.oc_tip_all_imported)
             return
         }
-        Net.req("orderapi/getALLCode", mapOf("goodnos" to toQuery, "billtype" to billtype)) { err, res ->
+        Net.req("orderapi/getALLCode", mapOf("goodnos" to JSONArray(toQuery).toString(), "billtype" to billtype)) { err, res ->
             runOnUiThread {
                 MfUi.hideLoading()
                 if (err != null || res == null) { MfUi.toast(this, R.string.oc_tip_import_fail); return@runOnUiThread }
@@ -269,7 +317,7 @@ class OrderConfirmActivity : BaseActivity() {
             "cusCode" to (cust["code"]?.toString() ?: ""),
             "remark" to remark,
             "makedate" to date,
-            "orderData" to codeList.toList()
+            "orderData" to JSONArray(codeList).toString()
         )) { err, res ->
             runOnUiThread {
                 MfUi.hideLoading()
@@ -279,6 +327,8 @@ class OrderConfirmActivity : BaseActivity() {
                         val newBillid = res.raw.optString("NewBillID", "")
                         MfUi.confirm(this, getString(R.string.oc_save_confirm), onConfirm = {
                             confirmOrder(newBillid)
+                        }, onCancel = {
+                            goList()
                         }, confirmText = "出库", cancelText = "仅保存")
                     }
                     "2" -> MfUi.toast(this, R.string.oc_tip_cust_mismatch)

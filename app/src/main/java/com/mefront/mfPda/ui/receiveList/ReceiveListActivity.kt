@@ -21,6 +21,7 @@ import com.mefront.mfPda.net.Net
 import com.mefront.mfPda.ui.orderConfirm.OrderConfirmActivity
 import com.mefront.mfPda.ui.receiveDetail.ReceiveDetailActivity
 import com.mefront.mfPda.widget.MfUi
+import android.graphics.Color
 import org.json.JSONObject
 
 class ReceiveListActivity : BaseActivity() {
@@ -30,6 +31,7 @@ class ReceiveListActivity : BaseActivity() {
     private var pageNo = 1
     private var loading = false
     private var keyword: String = ""
+    private var loadVersion = 0   // 请求版本号，丢弃旧请求的响应
 
     override fun title(): CharSequence = "收货单列表"
 
@@ -47,7 +49,7 @@ class ReceiveListActivity : BaseActivity() {
             override fun afterTextChanged(s: Editable?) { keyword = s?.toString()?.trim() ?: "" }
         })
         b.btnQuery.setOnClickListener {
-            data.clear(); pageNo = 1; load()
+            data.clear(); pageNo = 1; loadVersion++; load()
         }
         b.list.addOnScrollListener(object : RecyclerView.OnScrollListener() {
             override fun onScrolled(rv: RecyclerView, dx: Int, dy: Int) {
@@ -59,26 +61,39 @@ class ReceiveListActivity : BaseActivity() {
         })
     }
 
+    private var firstLoad = true
+
     override fun onResume() {
         super.onResume()
-        data.clear(); pageNo = 1; load()
+        if (firstLoad) {
+            firstLoad = false
+            load()
+        }
     }
 
     private fun load() {
         loading = true
+        val version = loadVersion
+        b.loadingBox.root.visibility = View.VISIBLE
+        b.tvEmpty.root.visibility = View.GONE
         Net.req("receive/receivelist", mapOf("type" to 2, "pageNo" to pageNo, "keyword" to keyword)) { err, res ->
-            runOnUiThread { handle(err, res) }
+            runOnUiThread { handle(err, res, version) }
         }
     }
 
-    private fun handle(err: Throwable?, res: ApiResponse?) {
+    private fun handle(err: Throwable?, res: ApiResponse?, version: Int) {
+        // 丢弃旧请求的响应
+        if (version != loadVersion) return
         loading = false
+        b.loadingBox.root.visibility = View.GONE
         if (err != null || res == null) { MfUi.toast(this, R.string.network_error); return }
         if (!res.ok) { MfUi.toast(this, R.string.network_error); return }
         val arr = res.dataJson
         if (arr == null || arr.length() == 0) {
-            b.tvEmpty.root.visibility = View.VISIBLE
-            b.tvEmpty.root.text = getString(R.string.empty_data)
+            if (pageNo == 1) {
+                b.tvEmpty.root.visibility = View.VISIBLE
+                b.tvEmpty.root.text = getString(R.string.empty_data)
+            }
             return
         }
         b.tvEmpty.root.visibility = View.GONE
@@ -154,10 +169,10 @@ class ReceiveListActivity : BaseActivity() {
             h.tvCode.text = "单号:${o.optString("Code", "")}"
             h.tvSaleType.text = "出库状态:$saleType"
             val saleColor = when (saleType) {
-                "未出库" -> 0xFFC91414.toInt()
-                "完全出库" -> 0xFF29AC24.toInt()
-                "部分出库" -> 0xFF1417C9.toInt()
-                else -> 0xFF666666.toInt()
+                "未出库" -> Color.parseColor("#C91414")
+                "完全出库" -> Color.parseColor("#29AC24")
+                "部分出库" -> Color.parseColor("#1417C9")
+                else -> Color.parseColor("#666666")
             }
             h.tvSaleType.setTextColor(saleColor)
 

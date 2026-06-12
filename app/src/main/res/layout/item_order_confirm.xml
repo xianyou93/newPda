@@ -34,8 +34,8 @@
         <Button
             android:id="@+id/btn_del"
             style="@style/MfButton.Red"
-            android:layout_width="50dp"
-            android:layout_height="24dp"
+            android:layout_width="56dp"
+            android:layout_height="36dp"
             android:minWidth="0dp"
             android:padding="0dp"
             android:text="删"
