@@ -1,152 +1,154 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/bg_page">
+    android:fitsSystemWindows="true">
 
-    <LinearLayout
+    <!-- 背景图（由 Theme.Login 的 windowBackground 提供，这里不重复加 ImageView） -->
+
+    <ScrollView
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="24dp">
+        android:layout_height="match_parent">
 
-        <!-- Logo + 标题区 -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="40dp"
-            android:layout_marginBottom="30dp"
-            android:gravity="center"
-            android:orientation="vertical">
-
-            <TextView
-                android:layout_width="56dp"
-                android:layout_height="56dp"
-                android:gravity="center"
-                android:text="M"
-                android:textSize="26sp"
-                android:textColor="#FFFFFF"
-                android:background="@drawable/bg_login_circle" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:text="@string/app_name"
-                android:textSize="22sp"
-                android:textColor="#1A1A2E"
-                android:textStyle="bold" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:text="PDA 管理端"
-                android:textSize="13sp"
-                android:textColor="#8899AA" />
-        </LinearLayout>
-
-        <!-- 错误提示 -->
-        <TextView
-            android:id="@+id/tv_error"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:textColor="#E74C3C"
-            android:textSize="14sp"
-            android:visibility="gone"
-            android:layout_marginBottom="8dp" />
-
-        <!-- 输入卡片 -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:background="#FFFFFF"
-            android:padding="20dp"
-            android:elevation="4dp">
+            android:paddingLeft="28dp"
+            android:paddingRight="28dp"
+            android:paddingTop="60dp"
+            android:paddingBottom="24dp">
 
-            <EditText
-                android:id="@+id/et_corp"
+            <!-- Logo 文字区 -->
+            <LinearLayout
                 android:layout_width="match_parent"
-                android:layout_height="52dp"
-                android:hint="@string/login_corp_hint"
-                android:textSize="16sp"
-                android:background="@drawable/bg_login_input"
-                android:paddingLeft="12dp"
-                android:paddingRight="12dp"
-                android:layout_marginBottom="12dp"
-                android:inputType="text" />
-
-            <EditText
-                android:id="@+id/et_user"
-                android:layout_width="match_parent"
-                android:layout_height="52dp"
-                android:hint="@string/login_user_hint"
-                android:textSize="16sp"
-                android:background="@drawable/bg_login_input"
-                android:paddingLeft="12dp"
-                android:paddingRight="12dp"
-                android:layout_marginBottom="12dp"
-                android:inputType="text" />
-
-            <EditText
-                android:id="@+id/et_pwd"
-                android:layout_width="match_parent"
-                android:layout_height="52dp"
-                android:hint="@string/login_pwd_hint"
-                android:textSize="16sp"
-                android:inputType="textPassword"
-                android:background="@drawable/bg_login_input"
-                android:paddingLeft="12dp"
-                android:paddingRight="12dp"
-                android:layout_marginBottom="8dp" />
-        </LinearLayout>
-
-        <!-- 登录按钮 -->
-        <Button
-            android:id="@+id/btn_login"
-            android:layout_width="match_parent"
-            android:layout_height="50dp"
-            android:layout_marginTop="24dp"
-            android:background="@drawable/bg_login_btn"
-            android:text="@string/login_btn"
-            android:textColor="#FFFFFF"
-            android:textSize="17sp"
-            android:textStyle="bold"
-            android:enabled="false"
-            android:elevation="2dp"
-            android:stateListAnimator="@null" />
-
-        <!-- 加载中 -->
-        <FrameLayout
-            android:id="@+id/progress"
-            android:layout_width="match_parent"
-            android:layout_height="50dp"
-            android:layout_marginTop="24dp"
-            android:visibility="gone"
-            android:gravity="center">
-            <ProgressBar
-                android:layout_width="28dp"
-                android:layout_height="28dp"
-                android:indeterminateTint="@color/primary" />
-            <TextView
-                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="8dp"
-                android:layout_gravity="center"
-                android:text="登录中..."
-                android:textColor="#666"
-                android:textSize="15sp" />
-        </FrameLayout>
+                android:layout_marginBottom="40dp"
+                android:gravity="center_horizontal"
+                android:orientation="vertical">
 
-        <!-- 版本号 -->
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="40dp"
-            android:gravity="center"
-            android:text="@string/app_version"
-            android:textColor="#BBBBBB"
-            android:textSize="12sp" />
-    </LinearLayout>
-</ScrollView>
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Mefront"
+                    android:textSize="36sp"
+                    android:textColor="#FFFFFF"
+                    android:fontFamily="sans-serif-light"
+                    android:letterSpacing="0.08"
+                    android:shadowColor="#40000000"
+                    android:shadowDx="0"
+                    android:shadowDy="2"
+                    android:shadowRadius="4" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="PDA 管理端"
+                    android:textSize="14sp"
+                    android:textColor="#BBFFFFFF"
+                    android:letterSpacing="0.1"
+                    android:shadowColor="#30000000"
+                    android:shadowDx="0"
+                    android:shadowDy="1"
+                    android:shadowRadius="2" />
+            </LinearLayout>
+
+            <!-- 毛玻璃输入卡片 -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:background="@drawable/bg_login_card"
+                android:padding="20dp">
+
+                <EditText
+                    android:id="@+id/et_corp"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:hint="@string/login_corp_hint"
+                    android:textSize="15sp"
+                    android:textColorHint="#99FFFFFF"
+                    android:textColor="#FFFFFF"
+                    android:background="@drawable/bg_login_input"
+                    android:paddingLeft="14dp"
+                    android:paddingRight="14dp"
+                    android:layout_marginBottom="12dp"
+                    android:inputType="text" />
+
+                <EditText
+                    android:id="@+id/et_user"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:hint="@string/login_user_hint"
+                    android:textSize="15sp"
+                    android:textColorHint="#99FFFFFF"
+                    android:textColor="#FFFFFF"
+                    android:background="@drawable/bg_login_input"
+                    android:paddingLeft="14dp"
+                    android:paddingRight="14dp"
+                    android:layout_marginBottom="12dp"
+                    android:inputType="text" />
+
+                <EditText
+                    android:id="@+id/et_pwd"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:hint="@string/login_pwd_hint"
+                    android:textSize="15sp"
+                    android:textColorHint="#99FFFFFF"
+                    android:textColor="#FFFFFF"
+                    android:inputType="textPassword"
+                    android:background="@drawable/bg_login_input"
+                    android:paddingLeft="14dp"
+                    android:paddingRight="14dp" />
+            </LinearLayout>
+
+            <!-- 登录按钮 -->
+            <Button
+                android:id="@+id/btn_login"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_marginTop="16dp"
+                android:background="@drawable/bg_login_btn"
+                android:text="@string/login_btn"
+                android:textColor="#99FFFFFF"
+                android:textSize="16sp"
+                android:fontFamily="sans-serif-medium"
+                android:enabled="false"
+                android:stateListAnimator="@null" />
+
+            <!-- 加载中 -->
+            <FrameLayout
+                android:id="@+id/progress"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_marginTop="16dp"
+                android:visibility="gone"
+                android:gravity="center">
+                <ProgressBar
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
+                    android:indeterminateTint="#FFFFFF" />
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:layout_gravity="center"
+                    android:text="登录中..."
+                    android:textColor="#CCFFFFFF"
+                    android:textSize="15sp" />
+            </FrameLayout>
+
+            <!-- 版本号 -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="40dp"
+                android:gravity="center"
+                android:text="@string/app_version"
+                android:textColor="#70FFFFFF"
+                android:textSize="12sp" />
+        </LinearLayout>
+    </ScrollView>
+</FrameLayout>

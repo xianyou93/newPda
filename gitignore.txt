@@ -12,6 +12,10 @@ local.properties
 app/build/
 build/
 
+# 本地工具链（沙箱一键编译用，不提交）
+/.dev-env/
+gradle/wrapper/gradle-wrapper.jar
+
 # Android
 *.apk
 *.aab
@@ -28,7 +32,11 @@ release/
 *.keystore
 
 # 参考资料与提问记录（不提交）
-wxxxc/qd/
-wxxxc/hd/
-wxxxc/PDA需求文档.md
-wxxxc/回答你的问题*.txt
+# wxxxc/ 目录下是 PDA 功能的微信小程序原型（qd/）和后端工程（hd/），
+# 仅供 mfPda 移植时对照参考，不进仓库。位置在仓库根的 .wxxxc/（隐藏目录），
+# 防止 IDE 误识别为源代码 / 防止 gradlew clean 时被误删。
+/.wxxxc/
+/.wxxxc/**
+/wxxxc/
+/wxxxc/**
+app/src/main.bak/

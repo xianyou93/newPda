@@ -105,7 +105,7 @@ object Net {
                     onResult(null, ApiResponse(
                         httpCode = r.code,
                         result = json.opt("result"),
-                        msg = json.optString("msg", ""),
+                        msg = json.optString("Msg", json.optString("msg", "")),
                         dataJson = json.optJSONArray("data"),
                         dataObject = json.optJSONObject("data"),
                         raw = json

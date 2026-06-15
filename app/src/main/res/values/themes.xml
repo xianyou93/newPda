@@ -12,6 +12,18 @@
         <item name="android:textSize">14sp</item>
     </style>
 
+    <!-- Splash 启动页主题：windowBackground 直接设为展示图，消除冷启动白屏 -->
+    <style name="Theme.Splash" parent="Theme.MfPda">
+        <item name="android:windowBackground">@drawable/bg_splash</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+    </style>
+
+    <!-- 登录页主题：透明状态栏，背景图延伸到状态栏 -->
+    <style name="Theme.Login" parent="Theme.MfPda">
+        <item name="android:windowBackground">@drawable/bg_login</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+    </style>
+
     <style name="MfToolbar" parent="Widget.MaterialComponents.Toolbar">
         <item name="android:background">@color/primary</item>
         <item name="titleTextColor">@color/text_white</item>

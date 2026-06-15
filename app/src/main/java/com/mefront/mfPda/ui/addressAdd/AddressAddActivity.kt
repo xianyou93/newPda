@@ -24,12 +24,22 @@ class AddressAddActivity : BaseActivity() {
 
     private lateinit var b: ActivityAddressAddBinding
     private var saveType: String = "Add"     // Add / Edit
-    private var code: String = ""             // 新增模式为空，编辑模式为后端返回
+    private var code: String = "系统自动生成" // 新增模式默认值，与小程序一致；编辑模式为后端返回
 
     private var name: String = ""
     private var address: String = ""
     private var legalPerson: String = ""
     private var phone: String = ""
+
+    // 隐藏字段（PDA无UI输入，与小程序保持一致，编辑时从后端加载回传）
+    private var comment: String = ""
+    private var bizManager: String = ""
+    private var legalPersonIDNumber: String = ""
+    private var zipCode: String = ""
+    private var accountName: String = ""
+    private var depositBank: String = ""
+    private var accountNumber: String = ""
+    private var corpCategoryID: String = "00000000-0000-0000-0000-000000000000"
 
     override fun title(): CharSequence = "客户维护"
 
@@ -88,6 +98,15 @@ class AddressAddActivity : BaseActivity() {
                 b.etAddress.setText(o.optString("Address", ""))
                 b.etLegal.setText(o.optString("LegalPerson", ""))
                 b.etPhone.setText(o.optString("BizManagerTelePhone", ""))
+                // 隐藏字段：编辑时从后端加载，保存时回传
+                comment = o.optString("Comment", "")
+                bizManager = o.optString("BizManager", "")
+                legalPersonIDNumber = o.optString("LegalPersonIDNumber", "")
+                zipCode = o.optString("ZipCode", "")
+                accountName = o.optString("AccountName", "")
+                depositBank = o.optString("DepositBank", "")
+                accountNumber = o.optString("AccountNumber", "")
+                corpCategoryID = o.optString("CorpCategoryID", "00000000-0000-0000-0000-000000000000")
             }
         }
     }
@@ -108,8 +127,16 @@ class AddressAddActivity : BaseActivity() {
             "Code" to code,
             "Name" to name,
             "Address" to address,
+            "Comment" to comment,
+            "BizManager" to bizManager,
+            "BizManagerTelePhone" to phone,
             "LegalPerson" to legalPerson,
-            "BizManagerTelePhone" to phone
+            "LegalPersonIDNumber" to legalPersonIDNumber,
+            "ZipCode" to zipCode,
+            "AccountName" to accountName,
+            "DepositBank" to depositBank,
+            "AccountNumber" to accountNumber,
+            "CorpCategoryID" to corpCategoryID
         )) { err, res ->
             runOnUiThread {
                 MfUi.hideLoading()

@@ -4,7 +4,11 @@ import android.content.Intent
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
+import android.view.Gravity
+import android.view.LayoutInflater
 import android.view.View
+import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.mefront.mfPda.R
 import com.mefront.mfPda.data.CuserInfo
@@ -73,7 +77,10 @@ class LoginActivity : AppCompatActivity() {
         val c = b.etCorp.text.toString().trim()
         val u = b.etUser.text.toString().trim()
         val p = b.etPwd.text.toString()
-        b.btnLogin.isEnabled = c.isNotBlank() && u.isNotBlank() && p.isNotBlank()
+        val ready = c.isNotBlank() && u.isNotBlank() && p.isNotBlank()
+        b.btnLogin.isEnabled = ready
+        // 按钮文字颜色：enabled=白色, disabled=半透明白色
+        b.btnLogin.setTextColor(if (ready) 0xFFFFFFFF.toInt() else 0x99FFFFFF.toInt())
     }
 
     private fun doLogin() {
@@ -142,7 +149,13 @@ class LoginActivity : AppCompatActivity() {
     }
 
     private fun showError(msg: String) {
-        b.tvError.text = msg
-        b.tvError.visibility = View.VISIBLE
+        // 毛玻璃 HUD 风格 Toast
+        val view = LayoutInflater.from(this).inflate(R.layout.toast_hud, null)
+        view.findViewById<TextView>(R.id.tv_hud_msg).text = msg
+        val toast = Toast(this)
+        toast.view = view
+        toast.duration = Toast.LENGTH_LONG
+        toast.setGravity(Gravity.CENTER, 0, 0)
+        toast.show()
     }
 }

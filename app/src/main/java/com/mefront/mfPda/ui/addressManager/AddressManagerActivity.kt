@@ -30,6 +30,7 @@ class AddressManagerActivity : BaseActivity() {
     private var pageNo = 1
     private var loading = false
     private var custName: String = ""
+    private var loadVersion = 0   // 请求版本号，丢弃旧请求的响应
 
     override fun title(): CharSequence = "客户管理"
 
@@ -43,7 +44,7 @@ class AddressManagerActivity : BaseActivity() {
         b.tab.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
             override fun onTabSelected(tab: TabLayout.Tab?) {
                 currentTab = tab?.tag as? Int ?: 0
-                data.clear(); pageNo = 1; load()
+                data.clear(); pageNo = 1; loadVersion++; load()
             }
             override fun onTabUnselected(tab: TabLayout.Tab?) {}
             override fun onTabReselected(tab: TabLayout.Tab?) {}
@@ -54,7 +55,7 @@ class AddressManagerActivity : BaseActivity() {
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
             override fun afterTextChanged(s: Editable?) { custName = s?.toString()?.trim() ?: "" }
         })
-        b.btnQuery.setOnClickListener { data.clear(); pageNo = 1; load() }
+        b.btnQuery.setOnClickListener { data.clear(); pageNo = 1; loadVersion++; load() }
         b.btnNew.setOnClickListener {
             startActivity(Intent(this, AddressAddActivity::class.java))
         }
@@ -73,18 +74,24 @@ class AddressManagerActivity : BaseActivity() {
 
     override fun onResume() {
         super.onResume()
-        data.clear(); pageNo = 1; load()
+        data.clear(); pageNo = 1; loadVersion++; load()
     }
 
     private fun load() {
         loading = true
+        b.loadingBox.root.visibility = View.VISIBLE
+        b.tvEmpty.root.visibility = View.GONE
+        val version = loadVersion
         Net.req("customapi/customList", mapOf("pageNo" to pageNo, "custName" to custName, "status" to currentTab)) { err, res ->
-            runOnUiThread { handle(err, res) }
+            runOnUiThread { handle(err, res, version) }
         }
     }
 
-    private fun handle(err: Throwable?, res: ApiResponse?) {
+    private fun handle(err: Throwable?, res: ApiResponse?, version: Int) {
+        // 丢弃旧请求的响应
+        if (version != loadVersion) return
         loading = false
+        b.loadingBox.root.visibility = View.GONE
         if (err != null || res == null) { MfUi.toast(this, R.string.network_error); return }
         if (!res.ok) { MfUi.toast(this, R.string.network_error); return }
         val arr = res.dataJson
@@ -126,18 +133,14 @@ class AddressManagerActivity : BaseActivity() {
                     if (err != null || res == null) { MfUi.toast(this, R.string.network_error); return@runOnUiThread }
                     when (res.result?.toString()) {
                         "1" -> {
-                            // 移除列表中这一项
-                            val code = o.optString("code", "")
-                            val it = data.indexOfFirst { it.optString("code", "") == code }
-                            if (it >= 0) {
-                                data.removeAt(it)
-                                b.list.adapter?.notifyItemRemoved(it)
-                            }
                             // 清理 custom 缓存（如果是当前选中的）
+                            val code = o.optString("code", "")
                             val custom = SpCache.getCustom()
                             if (custom != null && custom["code"]?.toString() == code) {
                                 SpCache.setCustom(null)
                             }
+                            // 重新加载列表，与小程序和启用操作一致
+                            data.clear(); pageNo = 1; loadVersion++; load()
                         }
                         "0" -> MfUi.toast(this, R.string.am_tip_data_err)
                         "2" -> MfUi.toast(this, R.string.am_tip_biz_done)
@@ -154,7 +157,7 @@ class AddressManagerActivity : BaseActivity() {
                 runOnUiThread {
                     if (err != null || res == null) { MfUi.toast(this, R.string.network_error); return@runOnUiThread }
                     when (res.result?.toString()) {
-                        "1" -> { data.clear(); pageNo = 1; load() }
+                        "1" -> { data.clear(); pageNo = 1; loadVersion++; load() }
                         "0" -> MfUi.toast(this, R.string.am_tip_data_err)
                         "2" -> MfUi.toast(this, R.string.am_tip_no_data)
                         else -> MfUi.toast(this, R.string.am_tip_delete_fail)

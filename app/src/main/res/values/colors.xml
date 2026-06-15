@@ -33,4 +33,9 @@
 
     <!-- 退库单背景 -->
     <color name="bg_tkd">#FFA500</color>
+
+    <!-- 状态卡片背景：浅色系，与文字颜色对应 -->
+    <color name="bg_pending">#FFE8E8</color>     <!-- 制单/未出库：浅红 -->
+    <color name="bg_done">#E8F5E8</color>        <!-- 已出库/完全出库/已收货/已退库：浅绿 -->
+    <color name="bg_partial">#E8E8FF</color>     <!-- 部分出库：浅蓝 -->
 </resources>

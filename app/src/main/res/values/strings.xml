@@ -20,7 +20,7 @@
     <!-- 登录 -->
     <string name="login_corp_hint">客户代码</string>
     <string name="login_user_hint">请输入用户名</string>
-    <string name="login_pwd_hint">请输入密码</string>
+    <string name="login_pwd_hint">密码</string>
     <string name="login_btn">登录</string>
     <string name="login_btn_modify">修改</string>
     <string name="login_input_uncheck">所有选项必录</string>

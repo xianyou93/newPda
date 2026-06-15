@@ -21,7 +21,6 @@ import com.mefront.mfPda.net.Net
 import com.mefront.mfPda.ui.orderConfirm.OrderConfirmActivity
 import com.mefront.mfPda.ui.receiveDetail.ReceiveDetailActivity
 import com.mefront.mfPda.widget.MfUi
-import android.graphics.Color
 import org.json.JSONObject
 
 class ReceiveListActivity : BaseActivity() {
@@ -168,13 +167,14 @@ class ReceiveListActivity : BaseActivity() {
             h.tvType.text = "类型:${billType}"
             h.tvCode.text = "单号:${o.optString("Code", "")}"
             h.tvSaleType.text = "出库状态:$saleType"
-            val saleColor = when (saleType) {
-                "未出库" -> Color.parseColor("#C91414")
-                "完全出库" -> Color.parseColor("#29AC24")
-                "部分出库" -> Color.parseColor("#1417C9")
-                else -> Color.parseColor("#666666")
+            // 状态颜色用卡片背景区分（文字颜色统一黑色）
+            val bg = when (saleType) {
+                "未出库" -> R.drawable.bg_card_pending
+                "完全出库" -> R.drawable.bg_card_done
+                "部分出库" -> R.drawable.bg_card_partial
+                else -> R.drawable.bg_card
             }
-            h.tvSaleType.setTextColor(saleColor)
+            h.root.setBackgroundResource(bg)
 
             val billid = o.optString("billid", "")
             h.btnView.setOnClickListener {

@@ -2,7 +2,6 @@ package com.mefront.mfPda.ui.ordertotal
 
 import android.content.Intent
 import android.os.Bundle
-import android.graphics.Color
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -101,10 +100,8 @@ class OrdertotalActivity : BaseActivity() {
             currentCustCode = custom["code"]?.toString() ?: ""
             b.tvCust.text = "${custom["code"] ?: ""} ${custom["name"] ?: ""} ${custom["LegalPerson"] ?: ""}"
             SpCache.setCustom2(null)
-        } else {
-            currentCustCode = ""
-            b.tvCust.text = getString(R.string.ot_cust_default)
         }
+        // getCustom2() 为 null 时保持原有筛选条件不变（从新增出库页返回不应丢失客户筛选）
         if (needRefresh) {
             data.clear()
             pageNo = 1
@@ -250,23 +247,21 @@ class OrdertotalActivity : BaseActivity() {
             val r = data[position]
             h.tvState.text = "状态:${r.state}"
             h.tvType.text = "类型:${r.billType}"
-            // 状态颜色：与微信小程序一致
-            val stateColor = when (r.state) {
-                "制单" -> Color.parseColor("#C91414")       // 红色 - 未出库
-                "已出库" -> Color.parseColor("#29AC24")     // 绿色 - 完全出库
-                "部分出库" -> Color.parseColor("#1417C9")   // 蓝色 - 部分出库
-                "已收货" -> Color.parseColor("#29AC24")      // 绿色 - 已完成
-                "已退库" -> Color.parseColor("#29AC24")     // 绿色 - 已完成
-                else -> Color.parseColor("#666666")
-            }
-            h.tvState.setTextColor(stateColor)
             h.tvName.text = r.name
             h.tvQty.text = "${r.qty}件"
             h.tvDate.text = r.makedate
             h.btnView.setOnClickListener { goView(r.billid) }
             h.btnOutstock.visibility = if (r.showOutstock) View.VISIBLE else View.GONE
             h.btnOutstock.setOnClickListener { goOutstock(r.billid) }
-            h.root.setBackgroundResource(if (r.listclass == "tkd") R.drawable.bg_tkd else R.drawable.bg_card)
+            // 状态颜色用卡片背景区分（文字颜色统一黑色）
+            val bg = when {
+                r.listclass == "tkd" -> R.drawable.bg_tkd
+                r.state == "制单" -> R.drawable.bg_card_pending
+                r.state == "已出库" || r.state == "已收货" || r.state == "已退库" -> R.drawable.bg_card_done
+                r.state == "部分出库" -> R.drawable.bg_card_partial
+                else -> R.drawable.bg_card
+            }
+            h.root.setBackgroundResource(bg)
         }
 
         override fun getItemCount(): Int = data.size
