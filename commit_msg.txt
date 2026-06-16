@@ -1,8 +1,9 @@
-v1.1.1 - 物理扫码键跳转修复：使用官方 sendKeyEvent 拦截 DPAD_CENTER
+v1.2.0 - BaseActivity 全局拦截 DPAD 按键，彻底解决物理键导航
 
-1. dispatchKeyEvent 中拦截 DPAD_CENTER（物理扫码键），通过
-   scanInterface?.sendKeyEvent(event) 交给扫码服务处理
-2. sendKeyEvent 按官方文档行为：ACTION_DOWN=开始扫码，ACTION_UP=停止扫码
-3. DPAD_CENTER 不再传到 UI 层，tvCustRow 不会被点击，不会跳到客户管理页
-4. 保留键盘模式 ENTER 拦截（扫码期间防误触）
-5. 同步更新 README 5.14 节、知识点的描述
+1. BaseActivity 新增 dispatchKeyEvent 拦截所有 DPAD_* 按键
+   (DPAD_CENTER/DOWN/UP/LEFT/RIGHT)，统一不传到 UI 层
+2. 新增 onDpadCenterEvent 回调，子类可重写处理物理扫码
+3. OrderConfirmActivity 实现 onDpadCenterEvent → sendKeyEvent
+4. 清除 OrderConfirmActivity 中散落的 DPAD 拦截代码，简化为 Enter 拦截
+5. 清除 setOnKeyListener 中的 DPAD 拦截（由 BaseActivity 统一处理）
+6. 同步更新 README 5.14 节

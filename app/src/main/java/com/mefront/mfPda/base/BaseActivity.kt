@@ -2,6 +2,7 @@ package com.mefront.mfPda.base
 
 import android.content.Intent
 import android.os.Bundle
+import android.view.KeyEvent
 import android.view.View
 import android.view.ViewGroup
 import androidx.appcompat.app.AppCompatActivity
@@ -13,6 +14,10 @@ import com.mefront.mfPda.util.Log
 
 /**
  * 公共 Activity 基类：默认 toolbar、返回键、未登录拦截。
+ *
+ * — 全局 DPAD 按键拦截 —
+ * 商米 V3PLUS 两侧物理扫码键会发送 DPAD 系列按键事件，本类统一拦截所有 DPAD 按键
+ * 使其不传到 UI 层，防止误触导航。子类可重写 [onDpadCenterEvent] 处理扫码逻辑。
  */
 abstract class BaseActivity : AppCompatActivity() {
 
@@ -22,8 +27,6 @@ abstract class BaseActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // toolbar 设置移到了 setContentView 重载中，
-        // 确保在布局加载完成后找 toolbar
     }
 
     override fun setContentView(layoutResID: Int) {
@@ -60,4 +63,26 @@ abstract class BaseActivity : AppCompatActivity() {
             finish()
         }
     }
+
+    // ── 全局 DPAD 按键拦截 ──
+    // 商米物理扫码键发送 DPAD_CENTER/DOWN/UP/LEFT/RIGHT，一律拦截不传到 UI 层
+
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        val kc = event.keyCode
+        if (kc == KeyEvent.KEYCODE_DPAD_CENTER ||
+            kc == KeyEvent.KEYCODE_DPAD_DOWN ||
+            kc == KeyEvent.KEYCODE_DPAD_UP ||
+            kc == KeyEvent.KEYCODE_DPAD_LEFT ||
+            kc == KeyEvent.KEYCODE_DPAD_RIGHT) {
+            // DPAD_CENTER 通知子类处理扫码（如 OrderConfirmActivity 调 sendKeyEvent）
+            if (kc == KeyEvent.KEYCODE_DPAD_CENTER) {
+                onDpadCenterEvent(event)
+            }
+            return true
+        }
+        return super.dispatchKeyEvent(event)
+    }
+
+    /** 子类可重写此方法处理物理扫码键（DPAD_CENTER），默认空实现。 */
+    protected open fun onDpadCenterEvent(event: KeyEvent) {}
 }

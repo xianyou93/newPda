@@ -126,19 +126,12 @@ class OrderConfirmActivity : BaseActivity() {
                 false
             }
         }
-        // 扫码期间拦截物理按键（防止商米两侧物理扫码键长按持续发送按键事件）
-        // 商米 V3PLUS 两侧物理扫码键：按下触发扫码（红光亮），按住不放持续发送
-        // DPAD_CENTER 按键事件。如果不拦截，弹框出现后会因为按键事件持续发送
-        // 而自动选中并点击弹框按钮，导致弹框瞬间消失。
+        // 扫码期间拦截键盘 Enter（DPAD 由 BaseActivity 统一拦截）
         b.etInput.setOnKeyListener { _, keyCode, event ->
-            if (isScanning && event.action == android.view.KeyEvent.ACTION_DOWN) {
-                if (keyCode == android.view.KeyEvent.KEYCODE_ENTER ||
-                    keyCode == android.view.KeyEvent.KEYCODE_DPAD_CENTER ||
-                    keyCode == android.view.KeyEvent.KEYCODE_DPAD_DOWN ||
-                    keyCode == android.view.KeyEvent.KEYCODE_DPAD_UP) {
-                    com.mefront.mfPda.util.Log.d("Scanner", "blocked key: keyCode=$keyCode")
-                    return@setOnKeyListener true
-                }
+            if (isScanning && event.action == android.view.KeyEvent.ACTION_DOWN &&
+                keyCode == android.view.KeyEvent.KEYCODE_ENTER) {
+                com.mefront.mfPda.util.Log.d("Scanner", "blocked key: keyCode=$keyCode")
+                return@setOnKeyListener true
             }
             false
         }
@@ -197,29 +190,25 @@ class OrderConfirmActivity : BaseActivity() {
         super.onDestroy()
     }
 
-    // ── 全局按键拦截 ──
-    // 两侧物理扫码键（DPAD_CENTER）→ sendKeyEvent 交给扫码服务处理，不传到 UI
-    // 键盘模式 Enter（ENTER/NUMPAD_ENTER）→ 扫码期间拦截防误触
-    // 返回键（BACK）→ 不拦截
+    // ── 键盘模式 Enter 拦截 ──
+    // 扫码/弹框期间拦截键盘 Enter，防止误触确认
     override fun dispatchKeyEvent(event: android.view.KeyEvent): Boolean {
-        // 物理扫码键：通过官方 AIDL sendKeyEvent 触发扫码（官方文档 2.3 节）
-        // ACTION_DOWN = 开始扫码，ACTION_UP = 停止扫码
-        if (event.keyCode == android.view.KeyEvent.KEYCODE_DPAD_CENTER) {
-            if (scanInterface != null) {
-                try { scanInterface?.sendKeyEvent(event) } catch (_: RemoteException) {}
-            }
-            com.mefront.mfPda.util.Log.d("Scanner", "sendKeyEvent action=${event.action}")
-            return true  // 拦截所有 DPAD_CENTER，防止传到 UI 层触发跳转
-        }
-        // 键盘模式 Enter：扫码期间拦截
         if (event.action == android.view.KeyEvent.ACTION_DOWN &&
             (isScanning || scanChoiceDialog?.isShowing == true) &&
             (event.keyCode == android.view.KeyEvent.KEYCODE_ENTER ||
              event.keyCode == android.view.KeyEvent.KEYCODE_NUMPAD_ENTER)) {
-            com.mefront.mfPda.util.Log.d("Scanner", "block Enter while scanning")
+            com.mefront.mfPda.util.Log.d("Scanner", "block Enter")
             return true
         }
-        return super.dispatchKeyEvent(event)
+        return super.dispatchKeyEvent(event)  // DPAD 由 BaseActivity 统一拦截
+    }
+
+    // ── 物理扫码键（DPAD_CENTER）→ sendKeyEvent ──
+    // 由 BaseActivity 在拦截 DPAD 后调用此方法
+    override fun onDpadCenterEvent(event: android.view.KeyEvent) {
+        if (scanInterface != null) {
+            try { scanInterface?.sendKeyEvent(event) } catch (_: RemoteException) {}
+        }
     }
 
     // ── 扫码服务绑定 ──
