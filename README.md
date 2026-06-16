@@ -9,6 +9,9 @@
 ## 〇、本地无 Studio 一键编译
 
 沙箱环境在 `.dev-env/`（JDK 17 + Android SDK 34 + Gradle 缓存），不污染系统。
+若沙箱不可用，也可用系统安装的 JDK 21 + Android SDK。
+
+**方式一：沙箱（JDK 17）**：
 
 ```bash
 export JAVA_HOME=/workspace/.dev-env/jdk/jdk-17.0.12
@@ -18,6 +21,18 @@ export PATH="$JAVA_HOME/bin:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME
 cd /workspace && ./gradlew assembleDebug
 # 产出：app/build/outputs/apk/debug/app-debug.apk
 ```
+
+**方式二：系统 JDK 21（沙箱不可用时）**：
+
+```bash
+export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
+export ANDROID_HOME=/tmp/android-sdk
+export PATH="$JAVA_HOME/bin:$ANDROID_HOME/latest/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH"
+cd /workspace && ./gradlew assembleDebug
+# 产出：app/build/outputs/apk/debug/app-debug.apk
+```
+
+> **注意**：AGP 8.2.0 与 JDK 21 不兼容（`jlink` 失败），已升级 AGP 到 8.3.2、Gradle 到 8.4。若回退 AGP 版本，必须使用 JDK 17 编译。
 
 ---
 
@@ -59,7 +74,7 @@ mfPda/
 | 网络请求 4 种分类 | `net/Net.kt`（req/req2/reqLogincode/reqPost） |
 | 登录入口 | `ui/login/LoginActivity.kt` |
 | 菜单主页 | `ui/mime/MimeActivity.kt` |
-| 扫码按钮占位（第二步对接商米） | `ui/orderConfirm/OrderConfirmActivity.kt` 的 `onScanClick()` |
+| 扫码按钮（已接入商米 AIDL） | `ui/orderConfirm/OrderConfirmActivity.kt` 的扫码逻辑 |
 | 对话框/Toast/Loading | `widget/MfUi.kt` + `dialog_confirm.xml` |
 
 ## 三、wxopenid / wxPhone 方案
@@ -250,18 +265,113 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 | 登录 | ✅ 已验证通过 | 用户确认登录成功 |
 | 菜单主页 | ✅ 正常 | |
 | 全部出库单 | ✅ 已修复 | 客户筛选/分页竞态/空数据提示/日期选择器/按钮尺寸/状态颜色已修复 |
-| 新增出库 | ✅ 已修复 | 产品列表滚动/扫码解析/JSON参数/日期选择器已修复 |
+| 新增出库 | ⚠️ 有未解决 Bug | **闪退**：进入新增出库页面时闪退，原因待排查。扫码软按钮/键盘 Enter 防击穿已修复 |
 | 收货单列表 | ✅ 已修复 | 滑动问题+按钮显示+分页竞态+状态颜色已修复 |
 | 全部客户 | ✅ 已修复 | 新建/编辑保存/列表Loading/分页竞态/删除后重载已修复 |
 | 个人中心 | ✅ 已修复 | 修改密码失败提示已修正 |
 | 修改密码 | ✅ 已修复 | 失败提示从"网络错误"改为"修改失败，请重试" |
 | 解除绑定 | 待验证 | |
+| 扫码功能（商米 AIDL） | ⚠️ 有未解决 Bug | `initScanner`+`setScanMode`+防击穿已修复。但进入新增出库页面闪退，可能与扫码相关改动有关，需真机 logcat 排查 |
 
 ### 5.11 v2026-06-12 Bug 修复（#45）
 
 | # | 模块 | Bug | 根因 | 修复 |
 |---|------|-----|------|------|
 | 45 | 全部出库单 | 新增出库保存后跳转列表页，客户筛选条件丢失，只能看到全部数据 | `onResume` 中 `SpCache.getCustom2()` 为 null 时把 `currentCustCode` 清空为 ""，从 OrderConfirmActivity 返回时 custom2 缓存为空导致筛选条件被重置 | `onResume` 中 getCustom2() 为 null 时不再重置 `currentCustCode`，保持原有筛选条件不变 |
+
+### 5.12 v2026-06-15 扫码功能实现（#46-48）
+
+**功能**：OrderConfirmActivity 接入商米 V3PLUS 扫码头引擎 AIDL，实现连续扫码模式。
+
+| # | 模块 | 改动 | 说明 |
+|---|------|------|------|
+| 46 | AIDL 接口 | 新增 `app/src/main/aidl/com/sunmi/scanner/IScanInterface.aidl` | 商米扫码头引擎 AIDL 接口（scan/stopScan/initScanner/unInitScanner/setScanMode/setScanSound/setScanVibrate） |
+| 47 | OrderConfirmActivity | 全面接入扫码逻辑 | AIDL 服务绑定/解绑、BroadcastReceiver 接收扫码结果、连续扫码模式、按钮状态切换、输入框保护、重复码/无效码选择框 |
+| 48 | AndroidManifest.xml | 新增 `<queries>` 声明 + 扫码权限 | Android targetSdk >= 30 必须声明 `com.sunmi.scanner` 包可见性，否则 AIDL 绑定失败；部分设备需声明扫码权限 |
+
+**编译问题及解决方案**（供后续开发参考）：
+
+| 问题 | 错误信息 | 根因 | 解决方案 |
+|------|----------|------|----------|
+| AIDL 不编译 | `Unresolved reference: sunmi` | AGP 8.x 默认 `buildFeatures.aidl = false`，AIDL 文件被忽略 | `app/build.gradle` 的 `buildFeatures` 中加 `aidl true` |
+| 缺少 import | `Unresolved reference: BroadcastReceiver` | 手写代码漏了 import | 添加 `import android.content.BroadcastReceiver` |
+| AGP 8.2 + JDK 21 不兼容 | `Execution failed for task ':app:minifyDebugWithR8'. A problem occurred starting process 'jlink'` | AGP 8.2.0 的 R8/shader 编译器与 JDK 21 的模块系统不兼容 | 升级 AGP 到 8.3.2 + Gradle 到 8.4（AGP 8.3+ 修复了 JDK 21 兼容性）。若不想升级 AGP，必须用 JDK 17 编译 |
+| Gradle wrapper jar 缺失 | `Error: Could not find or load main class org.gradle.wrapper.GradleWrapperMain` | `gradle-wrapper.jar` 文件损坏或不存在 | 用系统安装的 Gradle 执行 `gradle wrapper --gradle-version 8.4` 重新生成 |
+
+**扫码交互逻辑**：
+
+| 场景 | 行为 |
+|------|------|
+| 点击"扫码" | 绑定 AIDL 服务 → `initScanner(packageName)` 初始化 → `setScanMode(0)` 切广播模式 → `scan()` 启动红色激光 → 按钮变"停止扫码"+红色背景 → 输入框/确认/粘贴/保存全部禁用 |
+| 扫到一个码 | `BroadcastReceiver` 收到结果 → 调 `addByCode(fromScan=true)` → 成功则添加到列表 |
+| 重复码 | 弹选择框："继续扫描"/"停止扫描"。选继续则激光不停继续扫；选停止则 `stopScan()` 恢复所有按钮 |
+| 无效码（条码不存在） | 弹选择框："继续扫描"/"停止扫描"，逻辑同上 |
+| 扫码期间手动点输入框 | `clearFocus` + Toast "请停止扫码再使用录入功能" |
+| 点击"停止扫码" | `stopScan()` 停激光 → 所有按钮恢复初始状态 |
+| 退出页面 | `onDestroy` 中 `unInitScanner()` → `unbindService` → `unregisterReceiver` |
+
+### 5.13 v2026-06-15 扫码 Bug 修复（#49-53）
+
+**用户反馈两个 bug**：1) 软按钮没用、没有激光；2) 扫码二维码后跳到全部客户页面。
+
+| # | 模块 | Bug | 根因 | 修复 |
+|---|------|-----|------|------|
+| 49 | 扫码软按钮 | 点击软按钮没有激光，官方 APP 可以 | AIDL 文件注释明确要求 `initScanner(packageName)` 必须先调用（返回 0=成功），否则 `scan()` 是空操作。之前按 PDF 旧版文档删除了 `initScanner`，但 AIDL 才是设备真实接口 | `onServiceConnected` 中恢复 `initScanner(packageName)` 调用，检查返回值设 `isScannerReady`；成功后调 `setScanMode(0)` 切到纯广播输出模式（关闭键盘输出，从源头消除 Bug#50） |
+| 50 | 扫码跳客户页 | 扫箱码后直接跳到全部客户页面 | 商米扫码头默认**双通道输出**：键盘输出（条码文本+Enter）+ 广播。键盘输出的 Enter 误触 `onConfirmOrCancel()` → API 返回错误 → 弹窗出现 → Enter 键击穿弹窗 → 焦点意外落到客户选择行 → 触发 `goPickCustomer()` → 跳到全部客户页。同时键盘输出和广播同时处理同一个码导致双重 API 调用竞态 | 5 层防护：① `setScanMode(0)` 关闭键盘输出（源头）② `processingCodes` Set 防同一码双重处理 ③ `lastScanBroadcastTime` 时间窗拦截 Enter ④ `dispatchKeyEvent` override 全局拦截 Enter/DPAD/NUMPAD_ENTER ⑤ Dialog 按钮 `isFocusable=false` + view `requestFocus` + `onKeyListener` 拦截 Enter |
+| 51 | startScan 竞态 | 首次点击软按钮时 `scanInterface` 可能还没连接好（bindService 异步），无意义地设 `isScanning=true` 导致 UI 状态异常 | 加 `isScannerReady` 检查，服务未就绪时 return 并 Toast 提示 |
+| 52 | ScanReceiver 重复 | 键盘+广播双重处理同一个码，API 被调两次 | `processingCodes.add(code)` 互斥检查，已处理过的码直接跳过 |
+| 53 | Dialog Enter 击穿 | 扫码键盘输出的 Enter 键误触对话框按钮/IME action | Dialog 所有按钮设 `isFocusable=false`，root view `requestFocus` + `onKeyListener` 拦截 Enter；`dispatchKeyEvent` override 在广播收到结果后 500ms 内全局拦截 Enter |
+
+**V3PLUS 扫码服务排查要点**（AIDL 绑定失败时参考）：
+
+| 问题 | 原因 | 解决方案 |
+|------|------|---------|
+| `bindService` 返回 false | Android 12+ 必须用显式 Intent | 用 `ComponentName(pkg, className)` 显式绑定，不能用纯隐式 Intent |
+| Service 类名不确定 | 不同固件版本 Service 类名不同 | 依次尝试 `ScanService`/`ScannerService`/`service.ScanService` |
+| Action 不确定 | 不同固件 Action 字符串不同 | 依次尝试 `SCAN_SERVICE`/`action.SCAN_SERVICE`/`com.sunmi.scan` |
+| 广播收不到 | 广播 Action 不匹配 | 同时注册 `ACTION_DATA_CODE_RECEIVED`/`ScannerService.decode`/`SCAN_RESULT` |
+| data 字段取不到值 | 部分固件 data 是 `byte[]` 非 `String` | 先 `getStringExtra("data")`，为空再 `getByteArrayExtra("data")` → `String(bytes)` |
+| 物理键扫码正常但 AIDL 软触发不工作 | AIDL 接口不匹配或服务未绑定 | 降级为物理键扫码模式（广播接收器仍工作），Toast 提示用户 |
+| Android 14 注册广播闪退 | `registerReceiver` 必须指定 `RECEIVER_EXPORTED` | API 33+ 用 `registerReceiver(receiver, filter, RECEIVER_EXPORTED)` |
+| `com.sunmi.scanner` 包可见性 | targetSdk >= 30 需声明 | AndroidManifest 加 `<queries><package android:name="com.sunmi.scanner"/></queries>` |
+| 缺少权限 | 部分设备需要声明扫码权限 | AndroidManifest 加 `<uses-permission android:name="com.sunmi.scanner.permission.SCANNER"/>` |
+
+**V3PLUS 扫码交互问题排查**（物理键/软触发均适用）：
+
+| 问题 | 原因 | 解决方案 |
+|------|------|---------|
+| 物理扫码弹"条码不可用"选择框后立即消失 | 商米扫码默认"键盘输出模式"，扫到码后发 Enter 键，误触对话框按钮 | 选择框设 `setCancelable(false)` + `setCanceledOnTouchOutside(false)` 拦截按键；输入框拦截 Enter/DPAD 键 |
+| 扫码期间输入框出现条码文本 | 商米键盘输出模式向焦点输入框键入条码内容 | `afterTextChanged` 中检测 `isScanning`，自动清空输入框 |
+| 同一个码被处理两次 | 广播+键盘输出同时送达，广播调 `addByCode(fromScan=true)`，键盘触发 `onConfirmOrCancel` → `addByCode(fromScan=false)` | 扫码期间清空输入框文本 + 拦截 Enter 键 |
+| `scan()` 只扫一次不连续 | 商米 `scan()` 是单次软触发，扫到码后激光自动关闭 | `ScanReceiver.onReceive` 中再次调用 `scan()` 重新启动激光 |
+
+> **排查命令**：在设备上执行 `adb shell dumpsys package com.sunmi.scanner | grep -A5 Service` 可查看实际注册的 Service 和 Action。
+> **降级方案**：AIDL 软触发失败时，仍可通过物理扫码键 + 广播接收器完成扫码，只是用户需要按物理键而非 App 内按钮。
+
+### 5.13 v2026-06-16 项目清理（文件/资源去重）
+
+| # | 模块 | 改动 | 说明 |
+|---|------|------|------|
+| 46 | 根目录清理 | 删除 14 个冗余文件 + 2 个目录 | `gitattributes.txt`/`gitignore.txt`/`gradlew.txt`（txt 副本）、`proguard-rules.pro`（重复）、`scan_official_*`/`boxcode_qr*`（无关文档）、`package.json`/`package-lock.json`/`node_modules/`（npm 产物）、`local.properties`（错误 SDK 路径）、`push.bat`（含明文 token）、`mipmap-anydpi-v26/`（图标 XML 包装层，Bug#30 遗留） |
+| 47 | drawable/ | 删除 14 个未引用资源文件 | `bg_login_circle.xml`（旧 Logo 圆圈）、`dialog_bg.xml`（旧对话框背景）、`divider_10.xml`/`divider_h.xml`（未引用分隔线）、`ic_add.xml`/`ic_close.xml`/`ic_del.xml`（未引用图标）、`ic_launcher_foreground.xml`/`ic_launcher_legacy.xml`（旧矢量图标）、`ic_mime_my.xml`（个人中心菜单已删）、`ic_progress.xml`/`ic_qrcode.xml`/`progressbar.xml`/`tab_top.xml`（未引用） |
+| 48 | strings.xml | 删除 8 条未引用字串 | `login_phone_bind_fail`/`mime_loading`/`rl_salestatus_*`/`oc_scan_placeholder`/`aa_data_err`/`menu_my_center` |
+| 49 | colors.xml | 删除 1 条未引用颜色 | `bg_divider` |
+| 50 | mipmap/ | 删除 2 个 XML 图标包装文件 | `ic_launcher.xml`/`ic_launcher_round.xml` 引用了已删除的 `ic_launcher_legacy`，导致编译失败；删除后直接使用密度目录下的 PNG |
+
+### 5.14 v2026-06-16 扫码 Bug 修复
+
+| # | 模块 | Bug | 根因 | 修复 |
+|---|------|-----|------|------|
+| 51 | 扫码 | 扫描结果不处理（致命） | `ScanReceiver.onReceive` 中 `processingCodes.add(code)` 加入成功，`addByCode` 内部再次 `processingCodes.add(code)` 返回 false（已存在），直接 return 不执行任何业务逻辑 | 去掉 ScanReceiver 中的 `processingCodes.add/remove`，去重统一由 `addByCode` 处理 |
+| 52 | 扫码 | AIDL 接口与官方严重不匹配导致闪退 | 项目自创 AIDL（8 方法含 `initScanner`/`stopScan`/`setScanMode` 等），与官方扫码头引擎接口（4 方法：`sendKeyEvent`/`scan`/`stop`/`getScannerModel`）完全错位。方法交易码全乱，`scan()` 实际调用了服务端的 `stop()`，一点扫码就闪退 | 按商米官方 `扫码头开发及使用手册文档` 修正 AIDL 为标准的 4 个方法；代码中 `stopScan()` 改为 `stop()`；同时修正服务 Action 为 `IScanInterface` |
+
+#### ⚠️ 重要知识点：商米两侧物理扫码键的按键事件拦截
+
+商米 V3PLUS 机身两侧各有一个物理扫码按键。按下按键触发扫码（红色激光亮），按住不放会持续发送 DPAD_CENTER 按键事件。
+
+扫到条码后，如果码重复/无效，会弹出一个选择框。此时如果用户还按着物理扫码键没松手，DPAD_CENTER 事件会持续发送到屏幕，自动选中并点击弹框按钮，导致弹框瞬间消失，用户根本看不到提示。
+
+因此，扫码期间必须拦截 DPAD_CENTER/DPAD_DOWN/DPAD_UP 等按键事件，防止物理扫码键长按导致的弹框自动关闭。dispatchKeyEvent 也是同理。这不是 Bug，是特意适配商米物理按键的防御代码。
 
 ## 五-B、Bug 排查方法论
 
@@ -292,28 +402,58 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 
 ## 七、已知限制
 
-1. **第一步不接扫码硬件**。OrderConfirm 的"扫码"按钮点击只弹 Toast "扫码功能待对接"。
-2. **第一步不接打印**。
+1. ~~第一步不接扫码硬件~~。**已实现**，见 5.12。
+2. **第二步未接打印**。
 3. **App 图标已更换**为美丰客户中心正式图标。原图源文件在 `wxxxc/美丰客户中心图标修改.png`，生成到 `mipmap-*dpi/` 各分辨率。
 4. **t_wxLoginInfo 表里 PDA 这条记录**没有——后端 `t_logInfo` 写日志时 `wxTableId` 字段会为空串。不影响功能。
 
 ## 八、第二步需求（商米 V3PLUS 硬件接入）
 
 > 接入机型：商米V3PLUS，接入app当前项目app
+> 技术方案：扫码头引擎 AIDL（红外线扫码头）+ lineApi 打印，详见 `doc/sunmi/商米接口开发文档.md`
 
-### <1> 扫码功能
+### <1> 扫码功能 ✅ 已实现
 
-菜单页——新增出库单——扫码按钮，按照wxxxc的 qd(前端) 和hd(后端)代码逻辑，接入 商米V3PLUS完成扫码功能。以下是除原逻辑以外的需要新增的功能：
+**页面**：菜单页 → 新增出库单 → 扫码按钮
 
-（1）在点击扫码后，扫码屏幕上可以自由打开扫码灯
+**技术方案**：商米扫码头引擎 AIDL（`com.sunmi.scanner.IScanInterface`），通过软触发 `scan()` 启动红色激光连续扫描，通过 `BroadcastReceiver` 接收扫码结果广播。不做摄像头扫码降级。
 
-（2）扫码屏幕上可以按照产品区分扫码数量，以及扫码总数。当关闭扫码屏幕以后，在新增出库单页面，他如果继续扫码，所有数量根据列表显示重新统计。计数无缓存机制，根据列表数据来。
+**交互细节**（2026-06-15 确认）：
 
-（3）需要连续扫码，如果商米接口有扫码提示音最好，最好成功和失败的提示音不同，如果接口没有，那就不需要提示音。连续扫码由于商米接口有自带连续扫码空间，不必按照wxxxc里面的逻辑照搬。但是切记！千万记住：功能实现和使用体验，用户是区分不出来的，和原来操作逻辑一模一样！
+| 项目 | 说明 |
+|------|------|
+| 扫码模式 | **连续模式**：点击"扫码"→ 红色激光持续扫描，扫到一个码立即处理，然后继续扫描下一个，直到用户点击"停止扫码" |
+| 扫码期间手动输入 | **禁用**：扫码期间输入框获取焦点时提示"请停止扫码再使用录入功能"；确认/取消/粘贴导入按钮均禁用 |
+| 扫码按钮状态变化 | 点击"扫码"后 → 按钮变为"停止扫码"，颜色变红；点击"停止扫码"后 → 所有按钮恢复初始状态 |
+| 重复码提示 | **选择框**：扫到重复码弹窗，提供"继续扫描"/"停止扫描"两个选项，选择继续则激光继续扫 |
+| 提示音 | 商米扫码头引擎自带提示音，如接口支持成功/失败不同提示音则区分，否则不额外处理 |
+| 产品计数 | **暂不需要**：按产品区分扫码数量和扫码总数的计数功能暂不实现 |
+| 扫码灯 | V3PLUS 扫码头引擎为红色激光线 + 中心瞄准点，无需单独控制扫码灯（非摄像头扫码方案） |
+| 条码无效/不存在 | **选择框**：弹出"继续扫描"/"停止扫描"，与重复码逻辑一致 |
+
+**逻辑一致性**：扫码添加条码的后端逻辑（`getcode` / `getALLCode` / `addByCode`）与小程序一致，按照 `wxxxc/qd/` 前端和 `wxxxc/hd/` 后端代码执行，后端 0 改动。
 
 ### <2> 打印功能
 
-菜单页——全部出库单——全部订单列表条件：类型为：出库单、退库单  且 状态 为 已出库 点击查看按钮 ——出库单明细 列表头的右边一片空白处新增一个打印按钮， 颜色和样式你定，用于打印当前出库单明细，格式为表头、和明细列表，你根据字段自己排版，要求排版清晰好看。可以换行，列表明细 一个序号一排。
+**页面**：菜单页 → 全部出库单 → 出库单/退库单 → 点击查看 → 出库单明细页（GoodlistActivity）
+
+**技术方案**：商米 PrinterSdk lineApi（行式打印接口），详见 `doc/sunmi/商米接口开发文档.md`
+
+**交互细节**（2026-06-15 确认）：
+
+| 项目 | 说明 |
+|------|------|
+| 打印按钮位置 | **头部右侧**：和出库/删除按钮同一行 |
+| 打印按钮显示条件 | **仅已出库、已退库状态显示**（此时出库/删除按钮已隐藏，打印按钮替代显示）。具体判断：`status == "已收货" \|\| status == "已退库"`（注：后端返回"已收货"，前端显示为"已出库"） |
+| 打印内容 | **仅文字明细**：表头（单据编号、客户、日期、类型、备注）+ 列名行 + 明细列表（序号、产品名称、条码、单位），不打印二维码，不打印操作人/审核人 |
+| 排版要求 | 排版清晰好看，明细一行一个序号，可换行 |
+| 打印按钮样式 | 颜色和样式自定义，与页面风格协调 |
+| 纸宽适配 | V3PLUS 支持 58mm/80mm 纸卷，lineApi 比例排版自动适配 |
+
+### <3> 开发顺序
+
+1. **先做扫码**：实现扫码头引擎接入 → 测试通过
+2. **再做打印**：实现 lineApi 打印 → 测试通过
 
 ### 其他待验证项
 
@@ -335,7 +475,8 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 - targetSdk: 34（Android 14）
 - compileSdk: 34
 - Kotlin: 1.9.22
-- AGP: 8.2.0
+- AGP: 8.3.2（原 8.2.0，因 JDK 21 兼容性升级，见 5.12）
+- Gradle: 8.4（原 8.2，随 AGP 升级）
 
 ---
 
@@ -345,8 +486,12 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 
 5 个功能模块（登录、个人主页、全部出库单、新增出库、全部客户）已完整移植并修复 43 个 Bug，后端 0 改动。UI 已适配商米 V3PLUS 触屏，启动页+登录页采用毛玻璃风格设计。
 
-**🔜 第二步：接入商米 V3PLUS 硬件接口**（2026-06-15 求确认）
+**🔜 第二步：接入商米 V3PLUS 硬件接口**（2026-06-16 进行中）
 
-1. 扫码功能：OrderConfirmActivity 的扫码按钮接入商米 Scanner SDK，支持连续扫码、扫码灯开关、产品数量统计
-2. 打印功能：GoodlistActivity 出库单明细页新增打印按钮，接入商米打印机 SDK，打印表头+明细列表
+1. ✅ 扫码功能（已修复）：AIDL 接口按官方文档修正后，**扫码按钮可正常工作**。连续模式扫描，广播输出。
+2. 🔜 打印功能：GoodlistActivity 出库单明细页新增打印按钮（仅已出库/已退库显示），接入商米 PrinterSdk lineApi，打印表头+明细列表（纯文字，无二维码）
 3. 后端 0 改动（打印纯本地排版，扫码逻辑与小程序一致）
+
+### 已知问题
+
+- **物理扫码键长按跳到客户管理页**：物理扫码键发送 DPAD_CENTER 事件，会触发 `tvCustRow` 点击跳转到 AddressManagerActivity。当前 `dispatchKeyEvent` 在 `isScanning=true` 时拦截，但物理扫码不经过软件按钮所以 `isScanning` 为 false。待后续修复。

@@ -26,15 +26,11 @@
     <string name="login_input_uncheck">所有选项必录</string>
     <string name="login_input_inconsistent">请确认密码是否一致</string>
     <string name="login_missing_field">缺少关键字段，请重新登录</string>
-    <string name="login_phone_bind_fail">未成功绑定手机号，请重新进入小程序并登录！</string>
-
     <!-- mime -->
-    <string name="mime_loading">菜单加载中…</string>
     <string name="mime_view_or_edit">查看或编辑个人主页</string>
     <string name="menu_all_outstock">全部出库单</string>
     <string name="menu_new_outstock">新增出库</string>
     <string name="menu_all_customer">全部客户</string>
-    <string name="menu_my_center">个人中心</string>
 
     <!-- manager -->
     <string name="manager_avatar">头像</string>
@@ -92,7 +88,10 @@
     <string name="oc_btn_paste">粘贴并导入</string>
     <string name="oc_btn_faststock">查询收货单出库</string>
     <string name="oc_save_confirm">是否进行出库？</string>
-    <string name="oc_scan_placeholder">扫码功能待对接</string>
+    <string name="oc_btn_stop_scan">停止扫码</string>
+    <string name="oc_btn_continue_scan">继续扫描</string>
+    <string name="oc_btn_stop_scan_choice">停止扫描</string>
+    <string name="oc_tip_scan_input_blocked">请停止扫码再使用录入功能</string>
     <string name="oc_tip_code_empty">提交数据为空！</string>
     <string name="oc_tip_code_unavail">条码不可用！</string>
     <string name="oc_tip_not_received">未确认收货，请先确认收货！</string>
@@ -114,9 +113,6 @@
     <string name="rl_type_label">类型:</string>
     <string name="rl_code_label">单号:</string>
     <string name="rl_salestatus_label">出库状态:</string>
-    <string name="rl_salestatus_unship">未出库</string>
-    <string name="rl_salestatus_partial">部分出库</string>
-    <string name="rl_salestatus_full">完全出库</string>
     <string name="rl_view">查看</string>
     <string name="rl_btn_gen">出库</string>
     <string name="rl_address">发货地址：</string>
@@ -152,7 +148,6 @@
     <string name="aa_address">公司地址</string>
     <string name="aa_required">所有选项必录</string>
     <string name="aa_save_fail">保存失败</string>
-    <string name="aa_data_err">提交数据错误</string>
     <string name="aa_data_load_fail">数据读取失败</string>
     <string name="aa_phone_err">手机号码格式错误</string>
     <string name="aa_required_mark">*必填</string>

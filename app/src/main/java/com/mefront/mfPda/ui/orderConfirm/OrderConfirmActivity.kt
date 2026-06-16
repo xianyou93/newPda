@@ -1,10 +1,17 @@
 package com.mefront.mfPda.ui.orderConfirm
 
-import android.content.ClipData
-import android.content.ClipboardManager
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
+import android.content.ServiceConnection
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.BroadcastReceiver
+import android.os.Build
 import android.os.Bundle
+import android.os.IBinder
+import android.os.RemoteException
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.LayoutInflater
@@ -25,6 +32,7 @@ import com.mefront.mfPda.ui.receiveList.ReceiveListActivity
 import com.mefront.mfPda.ui.ordertotal.OrdertotalActivity
 import com.mefront.mfPda.util.DateUtil
 import com.mefront.mfPda.widget.MfUi
+import com.sunmi.scanner.IScanInterface
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -32,7 +40,10 @@ import org.json.JSONObject
  * 新增出库页。
  *
  * 关键适配：
- * - 扫码按钮 click 弹 Toast "扫码功能待对接"，不调 addclick、不连续扫码（第二步再接商米 SDK）。
+ * - 扫码按钮：接入商米扫码头引擎 AIDL，连续模式扫描。
+ *   点击"扫码"→ 红色激光持续扫描 → 按钮变"停止扫码"(红色) → 禁用输入框+确认+粘贴按钮。
+ *   扫到码 → addByCode() → 重复码/无效码弹选择框(继续扫描/停止扫描)。
+ *   点击"停止扫码"→ 恢复所有按钮初始状态。
  * - 手动输入框 + "确认"按钮：原 addclick 流程完全保留，包括 url 前缀去除、自动去重、错误码 0/2/3 处理。
  * - 客户选择：跳 AddressManagerActivity 选完返回（custom 缓存）。
  * - 粘贴并导入：读剪贴板 → 按空白/换行/逗号/分号分隔 → 调 orderapi/getALLCode 批量。
@@ -51,6 +62,13 @@ class OrderConfirmActivity : BaseActivity() {
     private var date: String = DateUtil.currentTime()
     private var remark: String = ""
     private var hasType: Boolean = false    // 是否从菜单主页进入（决定是否显示"查询收货单出库"）
+
+    // ── 扫码相关 ──
+    private var scanInterface: IScanInterface? = null
+    private var scanReceiver: ScanReceiver? = null
+    private var isScanning = false
+    private val processingCodes = mutableSetOf<String>()  // 防止键盘+广播双重处理
+    private var lastScanBroadcastTime = 0L  // 最近收到广播的时间戳，用于拦截键盘 Enter
 
     override fun title(): CharSequence = "新增出库单"
 
@@ -83,8 +101,54 @@ class OrderConfirmActivity : BaseActivity() {
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
             override fun afterTextChanged(s: Editable?) {
                 b.btnConfirmOrCancel.text = if (!s.isNullOrEmpty()) "确认" else "取消"
+                // 扫码期间：商米键盘输出模式可能向输入框键入条码文本，需要清空以防重复处理
+                if (isScanning && !s.isNullOrEmpty()) {
+                    com.mefront.mfPda.util.Log.d("Scanner", "cleared keyboard scan input: $s")
+                    b.etInput.setText("")
+                }
             }
         })
+        // 扫码期间拦截 Enter 键（防止商米扫码键盘输出模式误触发确认动作）
+        b.etInput.setOnEditorActionListener { _, actionId, event ->
+            if (isScanning) {
+                com.mefront.mfPda.util.Log.d("Scanner", "blocked editor action while scanning")
+                true
+            } else if (System.currentTimeMillis() - lastScanBroadcastTime < 500) {
+                // 广播刚收到扫码结果，键盘输出的 Enter 可能还在队列中，拦截
+                com.mefront.mfPda.util.Log.d("Scanner", "blocked editor action post-scan (${System.currentTimeMillis() - lastScanBroadcastTime}ms)")
+                b.etInput.setText("")  // 清空键盘输入的码防止残留
+                true
+            } else if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_DONE ||
+                event?.keyCode == android.view.KeyEvent.KEYCODE_ENTER) {
+                onConfirmOrCancel()
+                true
+            } else {
+                false
+            }
+        }
+        // 扫码期间拦截物理按键（防止商米两侧物理扫码键长按持续发送按键事件）
+        // 商米 V3PLUS 两侧物理扫码键：按下触发扫码（红光亮），按住不放持续发送
+        // DPAD_CENTER 按键事件。如果不拦截，弹框出现后会因为按键事件持续发送
+        // 而自动选中并点击弹框按钮，导致弹框瞬间消失。
+        b.etInput.setOnKeyListener { _, keyCode, event ->
+            if (isScanning && event.action == android.view.KeyEvent.ACTION_DOWN) {
+                if (keyCode == android.view.KeyEvent.KEYCODE_ENTER ||
+                    keyCode == android.view.KeyEvent.KEYCODE_DPAD_CENTER ||
+                    keyCode == android.view.KeyEvent.KEYCODE_DPAD_DOWN ||
+                    keyCode == android.view.KeyEvent.KEYCODE_DPAD_UP) {
+                    com.mefront.mfPda.util.Log.d("Scanner", "blocked key: keyCode=$keyCode")
+                    return@setOnKeyListener true
+                }
+            }
+            false
+        }
+        // 扫码期间点击输入框时提示
+        b.etInput.setOnFocusChangeListener { _, hasFocus ->
+            if (hasFocus && isScanning) {
+                b.etInput.clearFocus()
+                MfUi.toast(this, R.string.oc_tip_scan_input_blocked)
+            }
+        }
         b.btnConfirmOrCancel.setOnClickListener { onConfirmOrCancel() }
         b.btnScan.setOnClickListener { onScanClick() }
         b.btnPaste.setOnClickListener { pasteAndImport() }
@@ -108,6 +172,10 @@ class OrderConfirmActivity : BaseActivity() {
             // 进入时按原 wx 行为清缓存
             SpCache.clearOrderDraft()
         }
+
+        // 绑定商米扫码服务 + 注册广播（try-catch 防闪退：服务不存在时 bindService 可能抛 SecurityException）
+        try { bindScannerService() } catch (e: Exception) { com.mefront.mfPda.util.Log.d("Scanner", "bindService failed: ${e.message}") }
+        try { registerScanReceiver() } catch (e: Exception) { com.mefront.mfPda.util.Log.d("Scanner", "registerReceiver failed: ${e.message}") }
     }
 
     override fun onResume() {
@@ -117,6 +185,147 @@ class OrderConfirmActivity : BaseActivity() {
             b.tvCust.text = "${custom["code"] ?: ""}  ${custom["name"] ?: ""} ${custom["LegalPerson"] ?: ""}"
         } else {
             b.tvCust.text = getString(R.string.oc_cust_default)
+        }
+    }
+
+    override fun onDestroy() {
+        stopScan()
+        scanChoiceDialog?.dismiss()
+        scanChoiceDialog = null
+        unbindScannerService()
+        unregisterScanReceiver()
+        super.onDestroy()
+    }
+
+    // ── 全局按键拦截：防止物理扫码键长按导致跳转 ──
+    // 只拦截 DPAD_CENTER（物理扫码键）和 ENTER（键盘输出模式）
+    // 不拦截返回键（KEYCODE_BACK），防止 app 看起来像闪退
+    override fun dispatchKeyEvent(event: android.view.KeyEvent): Boolean {
+        if (event.action == android.view.KeyEvent.ACTION_DOWN &&
+            (isScanning || scanChoiceDialog?.isShowing == true) &&
+            (event.keyCode == android.view.KeyEvent.KEYCODE_DPAD_CENTER ||
+             event.keyCode == android.view.KeyEvent.KEYCODE_ENTER ||
+             event.keyCode == android.view.KeyEvent.KEYCODE_NUMPAD_ENTER)) {
+            com.mefront.mfPda.util.Log.d("Scanner", "block keyCode=${event.keyCode}")
+            return true
+        }
+        return super.dispatchKeyEvent(event)
+    }
+
+    // ── 扫码服务绑定 ──
+
+    private val scanConn = object : ServiceConnection {
+        override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
+            scanInterface = IScanInterface.Stub.asInterface(service)
+            com.mefront.mfPda.util.Log.d("Scanner", "onServiceConnected: ${name?.flattenToString()}")
+        }
+        override fun onServiceDisconnected(name: ComponentName?) {
+            scanInterface = null
+            com.mefront.mfPda.util.Log.d("Scanner", "onServiceDisconnected")
+        }
+    }
+
+    private fun bindScannerService() {
+        val intent = Intent()
+        intent.setPackage("com.sunmi.scanner")
+        intent.setAction("com.sunmi.scanner.IScanInterface")
+        bindService(intent, scanConn, Context.BIND_AUTO_CREATE)
+    }
+
+    private fun unbindScannerService() {
+        try { unbindService(scanConn) } catch (_: Exception) {}
+        scanInterface = null
+    }
+
+    // ── 广播注册 ──
+
+    private fun registerScanReceiver() {
+        scanReceiver = ScanReceiver()
+        val filter = IntentFilter()
+        filter.addAction("com.sunmi.scanner.ACTION_DATA_CODE_RECEIVED")
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(scanReceiver, filter, Context.RECEIVER_EXPORTED)
+        } else {
+            registerReceiver(scanReceiver, filter)
+        }
+    }
+
+    private fun unregisterScanReceiver() {
+        try { unregisterReceiver(scanReceiver) } catch (_: Exception) {}
+        scanReceiver = null
+    }
+
+    // ── 扫码按钮点击 ──
+
+    private fun onScanClick() {
+        if (isScanning) stopScan() else startScan()
+    }
+
+    private fun startScan() {
+        if (scanInterface == null) {
+            MfUi.toast(this, "扫码服务连接中，请稍后重试")
+            return
+        }
+        try {
+            scanInterface?.scan()
+            com.mefront.mfPda.util.Log.d("Scanner", "scan() called, laser should be ON")
+        } catch (e: RemoteException) {
+            com.mefront.mfPda.util.Log.d("Scanner", "scan() failed: ${e.message}")
+            MfUi.toast(this, "扫码启动失败: ${e.message}")
+            return
+        }
+        // 扫码成功启动后才设置状态和修改 UI
+        isScanning = true
+        b.btnScan.text = getString(R.string.oc_btn_stop_scan)
+        b.btnScan.backgroundTintList = android.content.res.ColorStateList.valueOf(
+            resources.getColor(R.color.btn_red, null))
+        b.etInput.isEnabled = false
+        b.btnConfirmOrCancel.isEnabled = false
+        b.btnPaste.isEnabled = false
+        b.btnSave.isEnabled = false
+    }
+
+    private fun stopScan() {
+        isScanning = false
+        // 恢复按钮初始状态（用 backgroundTintList 保持 Material 圆角样式）
+        b.btnScan.text = getString(R.string.oc_btn_scan)
+        b.btnScan.backgroundTintList = android.content.res.ColorStateList.valueOf(
+            resources.getColor(R.color.btn_green, null))
+        // 恢复输入框 + 按钮
+        b.etInput.isEnabled = true
+        b.btnConfirmOrCancel.isEnabled = true
+        b.btnPaste.isEnabled = true
+        b.btnSave.isEnabled = true
+        try { scanInterface?.stop() } catch (e: RemoteException) { e.printStackTrace() }
+    }
+
+    // ── 扫码结果广播接收器 ──
+
+    inner class ScanReceiver : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            // 文档字段：data(字符串) / source_byte(byte[]原始数据)
+            var code = intent.getStringExtra("data") ?: ""
+            if (code.isEmpty()) {
+                val arr = intent.getByteArrayExtra("source_byte")
+                if (arr != null && arr.isNotEmpty()) {
+                    code = String(arr, Charsets.UTF_8)
+                }
+            }
+            if (code.isBlank()) return
+
+            // 记录时间戳，用于拦截后续键盘输出 Enter
+            lastScanBroadcastTime = System.currentTimeMillis()
+
+            com.mefront.mfPda.util.Log.d("Scanner", "scan result: $code")
+            addByCode(code, fromScan = true)
+            // 连续扫码：扫到一个码后延迟 300ms 再次触发，激光保持亮着继续扫
+            if (isScanning && scanInterface != null) {
+                b.root.postDelayed({
+                    if (isScanning && scanInterface != null) {
+                        try { scanInterface?.scan() } catch (_: RemoteException) {}
+                    }
+                }, 300)
+            }
         }
     }
 
@@ -210,26 +419,45 @@ class OrderConfirmActivity : BaseActivity() {
         }
     }
 
-    private fun onScanClick() {
-        // 第一步：占位。点击弹 Toast 提示，不调 addclick。
-        // TODO: 第二步对接商米 Scanner SDK，扫到码后把 res.result 喂给 addByCode(code)
-        MfUi.toast(this, R.string.oc_scan_placeholder)
-    }
-
-    /** 公共：手动输入框/扫码成功调用此方法把一个码塞进列表。 */
-    private fun addByCode(rawCode: String) {
+    /** 公共：手动输入框/扫码成功调用此方法把一个码塞进列表。
+     *  fromScan=true 时，重复码/无效码弹选择框(继续扫描/停止扫描)。
+     *  fromScan=false 时，走原有 alert 逻辑。 */
+    private fun addByCode(rawCode: String, fromScan: Boolean = false) {
         val code = rawCode.replace("http://yzj.mefront.com/q/", "")
         if (code.isBlank()) return
+
+        // 标记正在处理，用于拦截键盘输出 Enter
+        lastScanBroadcastTime = System.currentTimeMillis()
+
+        // 防止键盘输出+广播双重处理同一个码
+        if (!processingCodes.add(code)) {
+            com.mefront.mfPda.util.Log.d("Scanner", "addByCode dup skip: $code")
+            b.etInput.setText("")
+            return
+        }
+
         if (codeList.contains(code)) {
-            MfUi.alert(this, getString(R.string.oc_tip_code_exists), "")
+            processingCodes.remove(code)
+            if (fromScan) {
+                showScanChoiceDialog(getString(R.string.oc_tip_code_exists))
+            } else {
+                MfUi.alert(this, getString(R.string.oc_tip_code_exists), "")
+            }
             return
         }
         Net.req("orderapi/getcode", mapOf("goodno" to code, "billtype" to billtype)) { err, res ->
             runOnUiThread {
-                if (err != null || res == null) { MfUi.toast(this, R.string.network_error); return@runOnUiThread }
+                processingCodes.remove(code)
+                if (err != null || res == null) {
+                    MfUi.toast(this, R.string.network_error)
+                    if (fromScan && isScanning) {
+                        // API 失败但继续扫描
+                        try { scanInterface?.scan() } catch (_: RemoteException) {}
+                    }
+                    return@runOnUiThread
+                }
                 when (res.result?.toString()) {
                     "1" -> {
-                        // 后端 getcode 返回 data 是单个对象（非数组），优先用 dataObject
                         val o = res.dataObject
                         if (o != null) {
                             codeList.add(code)
@@ -239,15 +467,93 @@ class OrderConfirmActivity : BaseActivity() {
                             b.etInput.setText("")
                         }
                     }
-                    "0" -> MfUi.alert(this, getString(R.string.oc_tip_code_empty), "")
-                    "2" -> MfUi.alert(this, getString(R.string.oc_tip_code_unavail), "")
-                    "3" -> MfUi.alert(this, getString(R.string.oc_tip_not_received), "")
+                    "0" -> {
+                        if (fromScan) showScanChoiceDialog(getString(R.string.oc_tip_code_empty))
+                        else MfUi.alert(this, getString(R.string.oc_tip_code_empty), "")
+                    }
+                    "2" -> {
+                        if (fromScan) showScanChoiceDialog(getString(R.string.oc_tip_code_unavail))
+                        else MfUi.alert(this, getString(R.string.oc_tip_code_unavail), "")
+                    }
+                    "3" -> {
+                        if (fromScan) showScanChoiceDialog(getString(R.string.oc_tip_not_received))
+                        else MfUi.alert(this, getString(R.string.oc_tip_not_received), "")
+                    }
                 }
             }
         }
     }
 
+    /** 扫码期间弹出选择框：继续扫描 / 停止扫描。
+     *  注意：商米扫码头在"键盘输出模式"下，扫到码后会发送 Enter 键事件，
+     *  可能误触对话框按钮或触发 IME action，因此对话框必须拦截按键事件。 */
+    private var scanChoiceDialog: android.app.Dialog? = null
+
+    private fun showScanChoiceDialog(message: String) {
+        if (isFinishing || isDestroyed) return
+        scanChoiceDialog?.dismiss()
+        
+        val view = LayoutInflater.from(this).inflate(R.layout.dialog_confirm, null, false)
+        val tvTitle = view.findViewById<TextView>(R.id.tv_title)
+        val tvContent = view.findViewById<TextView>(R.id.tv_content)
+        val btnConfirm = view.findViewById<TextView>(R.id.btn_confirm)
+        val btnCancel = view.findViewById<TextView>(R.id.btn_cancel)
+
+        tvTitle.text = message
+        btnConfirm.text = getString(R.string.oc_btn_continue_scan)
+        btnCancel.text = getString(R.string.oc_btn_stop_scan_choice)
+        tvContent.visibility = View.GONE
+
+        // ★ 禁止按钮 + 任何子 View 获取焦点
+        btnConfirm.isFocusable = false
+        btnConfirm.isFocusableInTouchMode = false
+        btnCancel.isFocusable = false
+        btnCancel.isFocusableInTouchMode = false
+        // root view 也聚焦拦截（兜底）
+        view.isFocusableInTouchMode = true
+        view.requestFocus()
+        view.setOnKeyListener { _, keyCode, event ->
+            if (event.action == android.view.KeyEvent.ACTION_DOWN &&
+                (keyCode == android.view.KeyEvent.KEYCODE_ENTER ||
+                 keyCode == android.view.KeyEvent.KEYCODE_DPAD_CENTER ||
+                 keyCode == android.view.KeyEvent.KEYCODE_NUMPAD_ENTER)) {
+                true
+            } else false
+        }
+
+        val dialog = android.app.Dialog(this, R.style.MfDialog)
+        dialog.setContentView(view)
+        dialog.setCancelable(false)
+        dialog.setCanceledOnTouchOutside(false)
+        dialog.setOnKeyListener { _, keyCode, event ->
+            if (event.action == android.view.KeyEvent.ACTION_DOWN &&
+                (keyCode == android.view.KeyEvent.KEYCODE_ENTER ||
+                 keyCode == android.view.KeyEvent.KEYCODE_DPAD_CENTER ||
+                 keyCode == android.view.KeyEvent.KEYCODE_NUMPAD_ENTER)) {
+                true
+            } else false
+        }
+
+        btnConfirm.setOnClickListener {
+            dialog.dismiss()
+            scanChoiceDialog = null
+        }
+        btnCancel.setOnClickListener {
+            dialog.dismiss()
+            scanChoiceDialog = null
+            stopScan()
+        }
+
+        scanChoiceDialog = dialog
+        dialog.show()
+    }
+
     private fun onConfirmOrCancel() {
+        // 扫码期间禁用
+        if (isScanning) {
+            MfUi.toast(this, R.string.oc_tip_scan_input_blocked)
+            return
+        }
         val txt = b.etInput.text.toString()
         if (txt.isNotEmpty()) {
             addByCode(txt)
@@ -256,6 +562,11 @@ class OrderConfirmActivity : BaseActivity() {
     }
 
     private fun pasteAndImport() {
+        // 扫码期间禁用
+        if (isScanning) {
+            MfUi.toast(this, R.string.oc_tip_scan_input_blocked)
+            return
+        }
         MfUi.showLoading(this, "导入中...")
         val cm = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         val clip: ClipData? = cm.primaryClip
@@ -308,6 +619,11 @@ class OrderConfirmActivity : BaseActivity() {
     }
 
     private fun saveOrder() {
+        // 扫码期间禁用
+        if (isScanning) {
+            MfUi.toast(this, R.string.oc_tip_scan_input_blocked)
+            return
+        }
         val cust = SpCache.getCustom()
         if (cust == null) { MfUi.toast(this, R.string.oc_cust_default); return }
         if (codeList.isEmpty()) { MfUi.toast(this, R.string.oc_tip_no_code); return }

@@ -17,7 +17,6 @@
     <color name="bg_page">#F0F2F5</color>
     <color name="bg_card">#FFFFFF</color>
     <color name="bg_line">#EBEBEB</color>
-    <color name="bg_divider">#EFEFF4</color>
 
     <!-- 状态色 -->
     <color name="status_pending">#FF8C00</color>

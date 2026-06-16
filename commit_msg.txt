@@ -1,0 +1,9 @@
+v1.1.0 - 按官方文档修正扫码AIDL接口，扫码按钮修复
+
+1. 修正 AIDL：删除自创的 8 方法（initScanner/stopScan/setScanMode等），替换为官方 4 方法（sendKeyEvent/scan/stop/getScannerModel）
+2. 修正服务绑定：Action 改为 IScanInterface（与官方文档一致）
+3. 修正代码：stopScan() 调用改为 stop()，删除 setScanMode/setScanSound 等不存在方法调用
+4. dispatchKeyEvent 不再拦截返回键，防止 app 假死
+5. 同步更新 README、商米接口开发文档
+6. 删除临时文件
+7. 根目录清理：删除冗余文件、未引用资源、未引用字串
