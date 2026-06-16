@@ -364,14 +364,21 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 |---|------|-----|------|------|
 | 51 | 扫码 | 扫描结果不处理（致命） | `ScanReceiver.onReceive` 中 `processingCodes.add(code)` 加入成功，`addByCode` 内部再次 `processingCodes.add(code)` 返回 false（已存在），直接 return 不执行任何业务逻辑 | 去掉 ScanReceiver 中的 `processingCodes.add/remove`，去重统一由 `addByCode` 处理 |
 | 52 | 扫码 | AIDL 接口与官方严重不匹配导致闪退 | 项目自创 AIDL（8 方法含 `initScanner`/`stopScan`/`setScanMode` 等），与官方扫码头引擎接口（4 方法：`sendKeyEvent`/`scan`/`stop`/`getScannerModel`）完全错位。方法交易码全乱，`scan()` 实际调用了服务端的 `stop()`，一点扫码就闪退 | 按商米官方 `扫码头开发及使用手册文档` 修正 AIDL 为标准的 4 个方法；代码中 `stopScan()` 改为 `stop()`；同时修正服务 Action 为 `IScanInterface` |
+| 53 | 扫码 | 物理扫码键长按跳到客户管理页 | 物理扫码键持续发送 DPAD_CENTER 事件，`dispatchKeyEvent` 没拦截 → 事件传到 `tvCustRow` → `goPickCustomer()` → 跳转 AddressManagerActivity | 用官方 AIDL 的 `sendKeyEvent(KeyEvent)` 拦截 DPAD_CENTER：按下=开始扫码，松开=停止扫码，事件不传到 UI 层 |
 
-#### ⚠️ 重要知识点：商米两侧物理扫码键的按键事件拦截
+#### ⚠️ 重要知识点：商米物理扫码键的处理方式
 
-商米 V3PLUS 机身两侧各有一个物理扫码按键。按下按键触发扫码（红色激光亮），按住不放会持续发送 DPAD_CENTER 按键事件。
+商米 V3PLUS 两侧的物理扫码按键按下后做两件事：
+1. **硬件扫码**（激光亮）→ 扫到码后发广播
+2. **发送 DPAD_CENTER 按键事件** → 如果不拦截，会传到 UI 层触发焦点控件的点击事件（如点到 `tvCustRow` 就跳到客户管理页）
 
-扫到条码后，如果码重复/无效，会弹出一个选择框。此时如果用户还按着物理扫码键没松手，DPAD_CENTER 事件会持续发送到屏幕，自动选中并点击弹框按钮，导致弹框瞬间消失，用户根本看不到提示。
+**官方推荐的处理方式：`sendKeyEvent(KeyEvent)`**
 
-因此，扫码期间必须拦截 DPAD_CENTER/DPAD_DOWN/DPAD_UP 等按键事件，防止物理扫码键长按导致的弹框自动关闭。dispatchKeyEvent 也是同理。这不是 Bug，是特意适配商米物理按键的防御代码。
+扫码头官方文档（2.3 节）提供的 `sendKeyEvent` 方法就是专门处理物理扫码键的：
+- `ACTION_DOWN` → 通知服务开始扫码
+- `ACTION_UP` → 通知服务停止扫码
+
+在 `dispatchKeyEvent` 中拦截 `DPAD_CENTER`，调用 `scanInterface?.sendKeyEvent(event)` 后 `return true`，事件不传到 UI 层，既保证了扫码功能正常，又防止了页面跳转。详见官方文档 `扫码头开发及使用手册文档.md` 第 2.3 节。
 
 ## 五-B、Bug 排查方法论
 

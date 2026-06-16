@@ -1,9 +1,8 @@
-v1.1.0 - 按官方文档修正扫码AIDL接口，扫码按钮修复
+v1.1.1 - 物理扫码键跳转修复：使用官方 sendKeyEvent 拦截 DPAD_CENTER
 
-1. 修正 AIDL：删除自创的 8 方法（initScanner/stopScan/setScanMode等），替换为官方 4 方法（sendKeyEvent/scan/stop/getScannerModel）
-2. 修正服务绑定：Action 改为 IScanInterface（与官方文档一致）
-3. 修正代码：stopScan() 调用改为 stop()，删除 setScanMode/setScanSound 等不存在方法调用
-4. dispatchKeyEvent 不再拦截返回键，防止 app 假死
-5. 同步更新 README、商米接口开发文档
-6. 删除临时文件
-7. 根目录清理：删除冗余文件、未引用资源、未引用字串
+1. dispatchKeyEvent 中拦截 DPAD_CENTER（物理扫码键），通过
+   scanInterface?.sendKeyEvent(event) 交给扫码服务处理
+2. sendKeyEvent 按官方文档行为：ACTION_DOWN=开始扫码，ACTION_UP=停止扫码
+3. DPAD_CENTER 不再传到 UI 层，tvCustRow 不会被点击，不会跳到客户管理页
+4. 保留键盘模式 ENTER 拦截（扫码期间防误触）
+5. 同步更新 README 5.14 节、知识点的描述

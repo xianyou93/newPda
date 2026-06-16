@@ -197,16 +197,26 @@ class OrderConfirmActivity : BaseActivity() {
         super.onDestroy()
     }
 
-    // ── 全局按键拦截：防止物理扫码键长按导致跳转 ──
-    // 只拦截 DPAD_CENTER（物理扫码键）和 ENTER（键盘输出模式）
-    // 不拦截返回键（KEYCODE_BACK），防止 app 看起来像闪退
+    // ── 全局按键拦截 ──
+    // 两侧物理扫码键（DPAD_CENTER）→ sendKeyEvent 交给扫码服务处理，不传到 UI
+    // 键盘模式 Enter（ENTER/NUMPAD_ENTER）→ 扫码期间拦截防误触
+    // 返回键（BACK）→ 不拦截
     override fun dispatchKeyEvent(event: android.view.KeyEvent): Boolean {
+        // 物理扫码键：通过官方 AIDL sendKeyEvent 触发扫码（官方文档 2.3 节）
+        // ACTION_DOWN = 开始扫码，ACTION_UP = 停止扫码
+        if (event.keyCode == android.view.KeyEvent.KEYCODE_DPAD_CENTER) {
+            if (scanInterface != null) {
+                try { scanInterface?.sendKeyEvent(event) } catch (_: RemoteException) {}
+            }
+            com.mefront.mfPda.util.Log.d("Scanner", "sendKeyEvent action=${event.action}")
+            return true  // 拦截所有 DPAD_CENTER，防止传到 UI 层触发跳转
+        }
+        // 键盘模式 Enter：扫码期间拦截
         if (event.action == android.view.KeyEvent.ACTION_DOWN &&
             (isScanning || scanChoiceDialog?.isShowing == true) &&
-            (event.keyCode == android.view.KeyEvent.KEYCODE_DPAD_CENTER ||
-             event.keyCode == android.view.KeyEvent.KEYCODE_ENTER ||
+            (event.keyCode == android.view.KeyEvent.KEYCODE_ENTER ||
              event.keyCode == android.view.KeyEvent.KEYCODE_NUMPAD_ENTER)) {
-            com.mefront.mfPda.util.Log.d("Scanner", "block keyCode=${event.keyCode}")
+            com.mefront.mfPda.util.Log.d("Scanner", "block Enter while scanning")
             return true
         }
         return super.dispatchKeyEvent(event)
