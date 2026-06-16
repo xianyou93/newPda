@@ -1,9 +1,5 @@
-v1.2.0 - 扫码功能完整修复：BaseActivity 全键拦截 + 按官方 demo 规范绑定
+v1.2.1 - 文档补充：明确记录哪些按键拦截/放行
 
-1. BaseActivity dispatchKeyEvent 拦截全部物理按键，只放行 BACK/VOLUME_UP/DOWN
-2. 物理扫码走硬件通路（激光→广播），不需要按键事件配合
-3. 服务绑定参考官方 ScanHeadDemo：先 startService 再 bindService
-4. 清除冗余代码：OrderConfirmActivity 中 dispatchKeyEvent、onDpadCenterEvent、
-   setOnKeyListener 等 DPAD 拦截代码全部删除（由 BaseActivity 统一处理）
-5. 同步更新 README 5.14 节、里程碑状态、知识点说明
-6. 更新商米接口开发文档.md（AIDL 接口、服务绑定、代码示例修正）
+1. README 知识点部分增加拦截/放行按键表格
+2. 商米接口开发文档 6.1 节第 8 条更新为全局拦截说明
+3. 明确列出哪些物理按键被拦截、哪些放行

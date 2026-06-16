@@ -375,9 +375,21 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 2. **发送按键事件** → 如果不拦截，会传到 UI 层触发焦点控件的点击事件（如点到 `tvCustRow` 就跳到客户管理页）
 
 **处理方式：`BaseActivity` 全局拦截所有物理按键**
-- `BaseActivity.dispatchKeyEvent` 拦截全部物理按键（只放行返回键和音量键）
-- 物理扫码完全走硬件通路（激光→广播→`ScanReceiver`），无需按键事件参与
-- 参考自商米官方 `ScanHeadDemo`：服务绑定先用 `startService` 再 `bindService`
+
+`BaseActivity.dispatchKeyEvent` 拦截列表：
+
+| 按键 | 拦截/放行 | 说明 |
+|------|----------|------|
+| `BACK`（返回键） | ✅ 放行 | 正常返回 |
+| `VOLUME_UP`（音量+） | ✅ 放行 | 不影响调音量 |
+| `VOLUME_DOWN`（音量-） | ✅ 放行 | 不影响调音量 |
+| `DPAD_CENTER`（物理扫码键） | ❌ 拦截 | 硬件扫码走激光→广播，不需按键事件 |
+| `DPAD_DOWN/UP/LEFT/RIGHT` | ❌ 拦截 | 防止焦点导航到可点击控件 |
+| `ENTER/NUMPAD_ENTER` | ❌ 拦截 | 防止键盘输出模式误触 UI |
+| 其他所有物理按键 | ❌ 拦截 | 统一消费，不传到 UI 层 |
+
+物理扫码完全走硬件通路（激光→广播→`ScanReceiver`），无需按键事件参与。
+服务绑定参考自商米官方 `ScanHeadDemo`：先 `startService` 再 `bindService`。
 - `ACTION_UP` → 通知服务停止扫码
 
 在 `dispatchKeyEvent` 中拦截 `DPAD_CENTER`，调用 `scanInterface?.sendKeyEvent(event)` 后 `return true`，事件不传到 UI 层，既保证了扫码功能正常，又防止了页面跳转。详见官方文档 `扫码头开发及使用手册文档.md` 第 2.3 节。
