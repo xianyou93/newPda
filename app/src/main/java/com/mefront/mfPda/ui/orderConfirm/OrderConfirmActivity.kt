@@ -126,15 +126,7 @@ class OrderConfirmActivity : BaseActivity() {
                 false
             }
         }
-        // 扫码期间拦截键盘 Enter（DPAD 由 BaseActivity 统一拦截）
-        b.etInput.setOnKeyListener { _, keyCode, event ->
-            if (isScanning && event.action == android.view.KeyEvent.ACTION_DOWN &&
-                keyCode == android.view.KeyEvent.KEYCODE_ENTER) {
-                com.mefront.mfPda.util.Log.d("Scanner", "blocked key: keyCode=$keyCode")
-                return@setOnKeyListener true
-            }
-            false
-        }
+
         // 扫码期间点击输入框时提示
         b.etInput.setOnFocusChangeListener { _, hasFocus ->
             if (hasFocus && isScanning) {
@@ -190,27 +182,6 @@ class OrderConfirmActivity : BaseActivity() {
         super.onDestroy()
     }
 
-    // ── 键盘模式 Enter 拦截 ──
-    // 扫码/弹框期间拦截键盘 Enter，防止误触确认
-    override fun dispatchKeyEvent(event: android.view.KeyEvent): Boolean {
-        if (event.action == android.view.KeyEvent.ACTION_DOWN &&
-            (isScanning || scanChoiceDialog?.isShowing == true) &&
-            (event.keyCode == android.view.KeyEvent.KEYCODE_ENTER ||
-             event.keyCode == android.view.KeyEvent.KEYCODE_NUMPAD_ENTER)) {
-            com.mefront.mfPda.util.Log.d("Scanner", "block Enter")
-            return true
-        }
-        return super.dispatchKeyEvent(event)  // DPAD 由 BaseActivity 统一拦截
-    }
-
-    // ── 物理扫码键（DPAD_CENTER）→ sendKeyEvent ──
-    // 由 BaseActivity 在拦截 DPAD 后调用此方法
-    override fun onDpadCenterEvent(event: android.view.KeyEvent) {
-        if (scanInterface != null) {
-            try { scanInterface?.sendKeyEvent(event) } catch (_: RemoteException) {}
-        }
-    }
-
     // ── 扫码服务绑定 ──
 
     private val scanConn = object : ServiceConnection {
@@ -228,6 +199,8 @@ class OrderConfirmActivity : BaseActivity() {
         val intent = Intent()
         intent.setPackage("com.sunmi.scanner")
         intent.setAction("com.sunmi.scanner.IScanInterface")
+        // 按官方 demo: 先 startService 确保服务运行，再 bindService
+        startService(intent)
         bindService(intent, scanConn, Context.BIND_AUTO_CREATE)
     }
 

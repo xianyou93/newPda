@@ -365,18 +365,19 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 | 51 | 扫码 | 扫描结果不处理（致命） | `ScanReceiver.onReceive` 中 `processingCodes.add(code)` 加入成功，`addByCode` 内部再次 `processingCodes.add(code)` 返回 false（已存在），直接 return 不执行任何业务逻辑 | 去掉 ScanReceiver 中的 `processingCodes.add/remove`，去重统一由 `addByCode` 处理 |
 | 52 | 扫码 | AIDL 接口与官方严重不匹配导致闪退 | 项目自创 AIDL（8 方法含 `initScanner`/`stopScan`/`setScanMode` 等），与官方扫码头引擎接口（4 方法：`sendKeyEvent`/`scan`/`stop`/`getScannerModel`）完全错位。方法交易码全乱，`scan()` 实际调用了服务端的 `stop()`，一点扫码就闪退 | 按商米官方 `扫码头开发及使用手册文档` 修正 AIDL 为标准的 4 个方法；代码中 `stopScan()` 改为 `stop()`；同时修正服务 Action 为 `IScanInterface` |
 | 53 | 扫码 | 物理扫码键长按跳到客户管理页 | 物理扫码键持续发送 DPAD_CENTER 事件，`dispatchKeyEvent` 没拦截 → 事件传到 `tvCustRow` → `goPickCustomer()` → 跳转 AddressManagerActivity | 用官方 AIDL 的 `sendKeyEvent(KeyEvent)` 拦截 DPAD_CENTER：按下=开始扫码，松开=停止扫码，事件不传到 UI 层 |
-| 54 | 架构 | BaseActivity 全局拦截 DPAD 按键 | 之前 DPAD 拦截只在 OrderConfirmActivity 局部做，其他页面 DPAD 事件仍可能触发导航 | `BaseActivity.dispatchKeyEvent` 统一拦截所有 DPAD_* 按键（CENTER/DOWN/UP/LEFT/RIGHT），子类用 `onDpadCenterEvent` 回调处理扫码，彻底防止物理键导航 |
+| 54 | 架构 | BaseActivity 全局拦截所有物理按键 | 物理扫码键可能发送多种 keyCode（不限于 DPAD），只拦部分按键总会有漏 | `BaseActivity.dispatchKeyEvent` 拦截**全部**物理按键（只放行 BACK/VOLUME_UP/VOLUME_DOWN），物理扫码走硬件通路（激光→广播），不需要按键事件配合 |
+| 55 | 扫码 | 按官方 demo 规范绑定服务 | 之前只 `bindService`，部分设备可能绑定不上 | 参考 `ScanHeadDemo`，先 `startService` 再 `bindService` |
 
 #### ⚠️ 重要知识点：商米物理扫码键的处理方式
 
 商米 V3PLUS 两侧的物理扫码按键按下后做两件事：
 1. **硬件扫码**（激光亮）→ 扫到码后发广播
-2. **发送 DPAD_CENTER 按键事件** → 如果不拦截，会传到 UI 层触发焦点控件的点击事件（如点到 `tvCustRow` 就跳到客户管理页）
+2. **发送按键事件** → 如果不拦截，会传到 UI 层触发焦点控件的点击事件（如点到 `tvCustRow` 就跳到客户管理页）
 
-**处理方式：`BaseActivity` 全局拦截 + `sendKeyEvent` 转发**
-- `BaseActivity.dispatchKeyEvent` 拦截所有 DPAD_* 按键，不传到 UI 层
-- `DPAD_CENTER` 调 `onDpadCenterEvent(event)` 回调，子类可重写
-- `OrderConfirmActivity` 重写 `onDpadCenterEvent` 调用 `scanInterface?.sendKeyEvent(event)`
+**处理方式：`BaseActivity` 全局拦截所有物理按键**
+- `BaseActivity.dispatchKeyEvent` 拦截全部物理按键（只放行返回键和音量键）
+- 物理扫码完全走硬件通路（激光→广播→`ScanReceiver`），无需按键事件参与
+- 参考自商米官方 `ScanHeadDemo`：服务绑定先用 `startService` 再 `bindService`
 - `ACTION_UP` → 通知服务停止扫码
 
 在 `dispatchKeyEvent` 中拦截 `DPAD_CENTER`，调用 `scanInterface?.sendKeyEvent(event)` 后 `return true`，事件不传到 UI 层，既保证了扫码功能正常，又防止了页面跳转。详见官方文档 `扫码头开发及使用手册文档.md` 第 2.3 节。
@@ -496,10 +497,14 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 
 **🔜 第二步：接入商米 V3PLUS 硬件接口**（2026-06-16 进行中）
 
-1. ✅ 扫码功能（已修复）：AIDL 接口按官方文档修正后，**扫码按钮可正常工作**。连续模式扫描，广播输出。
-2. 🔜 打印功能：GoodlistActivity 出库单明细页新增打印按钮（仅已出库/已退库显示），接入商米 PrinterSdk lineApi，打印表头+明细列表（纯文字，无二维码）
-3. 后端 0 改动（打印纯本地排版，扫码逻辑与小程序一致）
+1. ✅ **扫码功能已完整修复**：
+   - AIDL 接口按官方文档修正，软件扫码按钮正常工作
+   - `BaseActivity` 全局拦截物理按键，两侧物理扫码键不会触发导航跳转
+   - 服务绑定按官方 demo 规范：先 `startService` 再 `bindService`
+   - 连续模式扫描，广播输出，重复码/无效码弹框正常
+2. 🔜 打印功能：GoodlistActivity 出库单明细页新增打印按钮，接入商米 PrinterSdk lineApi
+3. 后端 0 改动
 
 ### 已知问题
 
-- **物理扫码键长按跳到客户管理页**：物理扫码键发送 DPAD_CENTER 事件，会触发 `tvCustRow` 点击跳转到 AddressManagerActivity。当前 `dispatchKeyEvent` 在 `isScanning=true` 时拦截，但物理扫码不经过软件按钮所以 `isScanning` 为 false。待后续修复。
+- 暂无已知扫码问题

@@ -15,9 +15,9 @@ import com.mefront.mfPda.util.Log
 /**
  * 公共 Activity 基类：默认 toolbar、返回键、未登录拦截。
  *
- * — 全局 DPAD 按键拦截 —
- * 商米 V3PLUS 两侧物理扫码键会发送 DPAD 系列按键事件，本类统一拦截所有 DPAD 按键
- * 使其不传到 UI 层，防止误触导航。子类可重写 [onDpadCenterEvent] 处理扫码逻辑。
+ * 全 app 拦截所有物理按键（只放行返回键和音量键），防止商米物理扫码键
+ * 发送的按键事件传到 UI 层导致导航跳转。物理扫码走硬件通路（激光→广播），
+ * 不需要按键事件配合。
  */
 abstract class BaseActivity : AppCompatActivity() {
 
@@ -64,25 +64,17 @@ abstract class BaseActivity : AppCompatActivity() {
         }
     }
 
-    // ── 全局 DPAD 按键拦截 ──
-    // 商米物理扫码键发送 DPAD_CENTER/DOWN/UP/LEFT/RIGHT，一律拦截不传到 UI 层
-
+    // ── 全局物理按键拦截 ──
+    // 商米 V3PLUS 两侧物理扫码键会发送按键事件，不拦截就会传到 UI 层触发跳转。
+    // 物理扫码自走硬件路径（激光→广播），不需按键事件配合，全部消费掉。
+    // 放行返回键（BACK）和音量键（VOLUME_UP/DOWN）。
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         val kc = event.keyCode
-        if (kc == KeyEvent.KEYCODE_DPAD_CENTER ||
-            kc == KeyEvent.KEYCODE_DPAD_DOWN ||
-            kc == KeyEvent.KEYCODE_DPAD_UP ||
-            kc == KeyEvent.KEYCODE_DPAD_LEFT ||
-            kc == KeyEvent.KEYCODE_DPAD_RIGHT) {
-            // DPAD_CENTER 通知子类处理扫码（如 OrderConfirmActivity 调 sendKeyEvent）
-            if (kc == KeyEvent.KEYCODE_DPAD_CENTER) {
-                onDpadCenterEvent(event)
-            }
-            return true
+        if (kc == KeyEvent.KEYCODE_BACK ||
+            kc == KeyEvent.KEYCODE_VOLUME_UP ||
+            kc == KeyEvent.KEYCODE_VOLUME_DOWN) {
+            return super.dispatchKeyEvent(event)
         }
-        return super.dispatchKeyEvent(event)
+        return true
     }
-
-    /** 子类可重写此方法处理物理扫码键（DPAD_CENTER），默认空实现。 */
-    protected open fun onDpadCenterEvent(event: KeyEvent) {}
 }

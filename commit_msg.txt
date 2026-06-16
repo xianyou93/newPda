@@ -1,9 +1,9 @@
-v1.2.0 - BaseActivity 全局拦截 DPAD 按键，彻底解决物理键导航
+v1.2.0 - 扫码功能完整修复：BaseActivity 全键拦截 + 按官方 demo 规范绑定
 
-1. BaseActivity 新增 dispatchKeyEvent 拦截所有 DPAD_* 按键
-   (DPAD_CENTER/DOWN/UP/LEFT/RIGHT)，统一不传到 UI 层
-2. 新增 onDpadCenterEvent 回调，子类可重写处理物理扫码
-3. OrderConfirmActivity 实现 onDpadCenterEvent → sendKeyEvent
-4. 清除 OrderConfirmActivity 中散落的 DPAD 拦截代码，简化为 Enter 拦截
-5. 清除 setOnKeyListener 中的 DPAD 拦截（由 BaseActivity 统一处理）
-6. 同步更新 README 5.14 节
+1. BaseActivity dispatchKeyEvent 拦截全部物理按键，只放行 BACK/VOLUME_UP/DOWN
+2. 物理扫码走硬件通路（激光→广播），不需要按键事件配合
+3. 服务绑定参考官方 ScanHeadDemo：先 startService 再 bindService
+4. 清除冗余代码：OrderConfirmActivity 中 dispatchKeyEvent、onDpadCenterEvent、
+   setOnKeyListener 等 DPAD 拦截代码全部删除（由 BaseActivity 统一处理）
+5. 同步更新 README 5.14 节、里程碑状态、知识点说明
+6. 更新商米接口开发文档.md（AIDL 接口、服务绑定、代码示例修正）
