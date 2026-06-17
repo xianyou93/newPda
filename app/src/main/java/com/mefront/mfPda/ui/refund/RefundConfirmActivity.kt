@@ -48,7 +48,9 @@ class RefundConfirmActivity : BaseActivity() {
     private var scanReceiver: ScanReceiver? = null
     private var isScanning = false
     private val processingCodes = mutableSetOf<String>()
-    private var lastScanBroadcastTime = 0L  // 最近收到广播的时间戳，用于拦截键盘 Enter
+    private var lastScanBroadcastTime = 0L
+    private val scanTimeoutHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private val scanTimeoutRunnable = Runnable { stopScan() }
 
     override fun title(): CharSequence = getString(R.string.rc_title)
 
@@ -176,9 +178,13 @@ class RefundConfirmActivity : BaseActivity() {
         b.etCode.isEnabled = false
         b.btnConfirm.isEnabled = false
         b.btnSave.isEnabled = false
+        // 5秒无扫码自动熄光保护
+        scanTimeoutHandler.removeCallbacks(scanTimeoutRunnable)
+        scanTimeoutHandler.postDelayed(scanTimeoutRunnable, 5000)
     }
 
     private fun stopScan() {
+        scanTimeoutHandler.removeCallbacks(scanTimeoutRunnable)
         isScanning = false
         b.btnScan.text = getString(R.string.oc_btn_scan)
         b.btnScan.backgroundTintList = android.content.res.ColorStateList.valueOf(
@@ -203,8 +209,19 @@ class RefundConfirmActivity : BaseActivity() {
             code = code.replace("http://yzj.mefront.com/q/", "")
             if (code.isEmpty()) return
             lastScanBroadcastTime = System.currentTimeMillis()
+            // 收到广播说明激光正常，重置5秒超时
+            scanTimeoutHandler.removeCallbacks(scanTimeoutRunnable)
+            scanTimeoutHandler.postDelayed(scanTimeoutRunnable, 5000)
             if (!processingCodes.add(code)) return
             addByCode(code)
+            // 连续扫码：无论API结果如何，延迟300ms重新scan保持激光常亮
+            if (isScanning && scanInterface != null) {
+                b.root.postDelayed({
+                    if (isScanning && scanInterface != null) {
+                        try { scanInterface?.scan() } catch (_: RemoteException) {}
+                    }
+                }, 300)
+            }
         }
     }
 
@@ -249,13 +266,7 @@ class RefundConfirmActivity : BaseActivity() {
                     b.etCode.setText("")
                     b.list.adapter?.notifyDataSetChanged()
                 }
-                if (isScanning) {
-                    b.root.postDelayed({
-                        if (isScanning && scanInterface != null) {
-                            try { scanInterface?.scan() } catch (_: RemoteException) {}
-                        }
-                    }, 300)
-                }
+                // 连续扫码在ScanReceiver里统一处理，这里只处理数据
             }
             "2" -> confirmDialog(getString(R.string.rc_code_unavail))
             "3" -> confirmDialog(getString(R.string.rc_code_not_received))
@@ -309,6 +320,10 @@ class RefundConfirmActivity : BaseActivity() {
         btnConfirm.setOnClickListener {
             dialog.dismiss()
             scanChoiceDialog = null
+            // 继续扫描：重新触发激光
+            if (isScanning && scanInterface != null) {
+                try { scanInterface?.scan() } catch (_: RemoteException) {}
+            }
         }
         btnCancel.setOnClickListener {
             dialog.dismiss()

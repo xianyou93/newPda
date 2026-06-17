@@ -69,6 +69,8 @@ class OrderConfirmActivity : BaseActivity() {
     private var isScanning = false
     private val processingCodes = mutableSetOf<String>()  // 防止键盘+广播双重处理
     private var lastScanBroadcastTime = 0L  // 最近收到广播的时间戳，用于拦截键盘 Enter
+    private val scanTimeoutHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private val scanTimeoutRunnable = Runnable { stopScan() }
 
     override fun title(): CharSequence = "新增出库单"
 
@@ -255,9 +257,13 @@ class OrderConfirmActivity : BaseActivity() {
         b.btnConfirmOrCancel.isEnabled = false
         b.btnPaste.isEnabled = false
         b.btnSave.isEnabled = false
+        // 5秒无扫码自动熄光保护
+        scanTimeoutHandler.removeCallbacks(scanTimeoutRunnable)
+        scanTimeoutHandler.postDelayed(scanTimeoutRunnable, 5000)
     }
 
     private fun stopScan() {
+        scanTimeoutHandler.removeCallbacks(scanTimeoutRunnable)
         isScanning = false
         // 恢复按钮初始状态（用 backgroundTintList 保持 Material 圆角样式）
         b.btnScan.text = getString(R.string.oc_btn_scan)
@@ -289,6 +295,9 @@ class OrderConfirmActivity : BaseActivity() {
             lastScanBroadcastTime = System.currentTimeMillis()
 
             com.mefront.mfPda.util.Log.d("Scanner", "scan result: $code")
+            // 收到广播说明激光正常，重置5秒超时
+            scanTimeoutHandler.removeCallbacks(scanTimeoutRunnable)
+            scanTimeoutHandler.postDelayed(scanTimeoutRunnable, 5000)
             addByCode(code, fromScan = true)
             // 连续扫码：扫到一个码后延迟 300ms 再次触发，激光保持亮着继续扫
             if (isScanning && scanInterface != null) {
