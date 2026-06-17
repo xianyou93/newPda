@@ -55,4 +55,6 @@ dependencies {
     implementation 'org.json:json:20231013'
     // 协程
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3'
+    // 商米 PrinterX SDK（内置打印服务）
+    implementation 'com.sunmi:printerx:1.0.18'
 }

@@ -1,7 +1,9 @@
 package com.mefront.mfPda.ui.goodlist
 
+import android.content.DialogInterface
 import android.content.Intent
 import android.os.Bundle
+import androidx.appcompat.app.AlertDialog
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -15,7 +17,13 @@ import com.mefront.mfPda.databinding.ActivityGoodlistBinding
 import com.mefront.mfPda.net.ApiResponse
 import com.mefront.mfPda.net.Net
 import com.mefront.mfPda.ui.ordertotal.OrdertotalActivity
+import com.mefront.mfPda.util.Log
 import com.mefront.mfPda.widget.MfUi
+import com.sunmi.printerx.PrinterSdk
+import com.sunmi.printerx.enums.Align
+import com.sunmi.printerx.enums.DividingLine
+import com.sunmi.printerx.style.BaseStyle
+import com.sunmi.printerx.style.TextStyle
 import org.json.JSONObject
 
 class GoodlistActivity : BaseActivity() {
@@ -24,6 +32,10 @@ class GoodlistActivity : BaseActivity() {
     private val list = mutableListOf<JSONObject>()
     private var billid: String = ""
     private var orderhead: JSONObject? = null
+
+    // 商米打印机
+    private var mPrinter: PrinterSdk.Printer? = null
+    private var printerReady = false
 
     override fun title(): CharSequence = "出库单明细"
 
@@ -37,7 +49,43 @@ class GoodlistActivity : BaseActivity() {
         b.list.adapter = Adapter(list)
 
         loadDetail()
+
+        // 异步初始化商米打印机
+        initPrinter()
     }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        // 释放打印 SDK
+        try { PrinterSdk.getInstance().destroy() } catch (_: Exception) {}
+    }
+
+    // ── 打印机初始化（异步） ──
+
+    private fun initPrinter() {
+        try {
+            PrinterSdk.getInstance().getPrinter(this, object : PrinterSdk.PrinterListen {
+                override fun onDefPrinter(printer: PrinterSdk.Printer?) {
+                    if (printer != null) {
+                        mPrinter = printer
+                        printerReady = true
+                        Log.d("Print", "printer ready: ${printer.queryApi()?.status}")
+                    }
+                }
+
+                override fun onPrinters(printers: MutableList<PrinterSdk.Printer>?) {
+                    if (printers != null && printers.isNotEmpty() && mPrinter == null) {
+                        mPrinter = printers[0]
+                        printerReady = true
+                    }
+                }
+            })
+        } catch (e: Exception) {
+            Log.e("Print", "init printer fail: ${e.message}")
+        }
+    }
+
+    // ── 加载数据 ──
 
     private fun loadDetail() {
         MfUi.showLoading(this, getString(R.string.gl_loading))
@@ -74,11 +122,17 @@ class GoodlistActivity : BaseActivity() {
         b.tvStatus.text = if (status == "已收货") "状态:已出库" else "状态:$status"
         b.tvType.text = "类型:${head.optString("BillType", "")}"
         val isEditable = status == "制单"
+        val isShipped = status == "已收货" || status == "已退库"
         b.btnOutstock.visibility = if (isEditable) View.VISIBLE else View.GONE
         b.btnDelete.visibility = if (isEditable) View.VISIBLE else View.GONE
+        b.btnPrint.visibility = if (isShipped) View.VISIBLE else View.GONE
         b.btnOutstock.setOnClickListener { confirmOrder() }
         b.btnDelete.setOnClickListener { deleteOrder() }
+        b.btnPrint.setOnClickListener { printOrder() }
+        b.btnPrint.isEnabled = true
     }
+
+    // ── 出库/删除 ──
 
     private fun confirmOrder() {
         MfUi.showLoading(this, getString(R.string.gl_confirming))
@@ -113,6 +167,109 @@ class GoodlistActivity : BaseActivity() {
                 }
             }
         })
+    }
+
+    // ── 打印（官方 PrinterX SDK，对齐官方 Demo） ──
+
+    private fun printOrder() {
+        val head = orderhead ?: run { MfUi.toast(this, "数据未加载"); return }
+        if (list.isEmpty()) { MfUi.toast(this, "没有可打印的数据"); return }
+
+        if (!printerReady || mPrinter == null) {
+            MfUi.toast(this, "打印机初始化中，请稍后重试")
+            return
+        }
+
+        val api = mPrinter?.lineApi() ?: run { MfUi.toast(this, "打印服务不可用"); return }
+
+        MfUi.toast(this, getString(R.string.gl_printing))
+
+        try {
+            // ── 弹出选择纸仓大小 ──
+            AlertDialog.Builder(this)
+                .setTitle("请选择纸仓大小")
+                .setPositiveButton("58mm") { _: DialogInterface, _: Int ->
+                    doPrint(api, 384, head)
+                }
+                .setNegativeButton("80mm") { _: DialogInterface, _: Int ->
+                    doPrint(api, 576, head)
+                }
+                .show()
+        } catch (e: Exception) {
+            Log.e("Print", "print fail: ${e.message}")
+            MfUi.toast(this, R.string.gl_print_fail)
+        }
+    }
+
+    private fun doPrint(api: com.sunmi.printerx.api.LineApi, paperWidthPx: Int, head: JSONObject) {
+        val is80mm = paperWidthPx >= 500
+        try {
+            api.initLine(BaseStyle.getStyle().setWidth(paperWidthPx))
+
+            // ── 根据纸宽选参数 ──
+            val colsArr: IntArray
+            val detailTextSize: Int
+            val headerTextSize: Int
+            if (is80mm) {
+                // 80mm(576px): 规格给一点给箱码，字体大一些
+                colsArr = intArrayOf(1, 2, 1, 3, 1)
+                detailTextSize = 22
+                headerTextSize = 24
+            } else {
+                // 58mm(384px): 明细列标题和内容都大一点，互相有间距
+                colsArr = intArrayOf(1, 2, 2, 3, 1)
+                detailTextSize = 16
+                headerTextSize = 20
+            }
+            val fontHeader = TextStyle.getStyle().setTextSize(headerTextSize)
+            val colCenter = TextStyle.getStyle().setAlign(Align.CENTER).setTextSize(detailTextSize).setTextSpace(1)
+            val colCenterBold = TextStyle.getStyle().setAlign(Align.CENTER).enableBold(true).setTextSize(detailTextSize + 2).setTextSpace(1)
+            val colStylesHeader = arrayOf(colCenterBold, colCenterBold, colCenterBold, colCenterBold, colCenterBold)
+            val colStylesDetail = arrayOf(colCenter, colCenter, colCenter, colCenter, colCenter)
+
+            api.initLine(BaseStyle.getStyle().setWidth(paperWidthPx).setAlign(Align.LEFT))
+            api.printText("单据编号: ${head.optString("Code", "")}", fontHeader)
+            api.printText("客户代码: ${head.optString("CusCode", "")}", fontHeader)
+            api.printText("客户名称: ${head.optString("name", "")}", fontHeader)
+            api.printText("日期: ${head.optString("MakeDate", "")}", fontHeader)
+            api.printText("类型: ${head.optString("BillType", "")}", fontHeader)
+
+            api.printDividingLine(DividingLine.EMPTY, 6)
+            api.printDividingLine(DividingLine.DOTTED, 2)
+            api.printDividingLine(DividingLine.EMPTY, 6)
+
+            api.printTexts(
+                arrayOf("序号", "箱码", "产品名称", "规格", "规格2"),
+                colsArr, colStylesHeader
+            )
+            // 列标题和明细内容之间留间距
+            api.printDividingLine(DividingLine.EMPTY, 4)
+
+            for (i in list.indices) {
+                val o = list[i]
+                api.printTexts(
+                    arrayOf(
+                        (i + 1).toString(),
+                        o.optString("ScanCode", ""),
+                        o.optString("Name", ""),
+                        o.optString("Spec", ""),
+                        o.optString("Spec2", "")
+                    ),
+                    colsArr, colStylesDetail
+                )
+                if (i < list.size - 1) api.printDividingLine(DividingLine.EMPTY, 4)
+            }
+
+            api.printDividingLine(DividingLine.EMPTY, 6)
+            api.printDividingLine(DividingLine.DOTTED, 2)
+            api.printDividingLine(DividingLine.EMPTY, 80)  // 底部留1cm空白
+            api.autoOut()
+
+            MfUi.toast(this@GoodlistActivity, R.string.gl_print_ok)
+        } catch (e: Exception) {
+            Log.e("Print", "print fail: ${e.message}")
+            MfUi.toast(this, R.string.gl_print_fail)
+        }
     }
 
     private fun rowDelete(code: String) {

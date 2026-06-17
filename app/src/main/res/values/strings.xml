@@ -74,6 +74,10 @@
     <string name="gl_confirming">正在生成出库单...</string>
     <string name="gl_tip_billid_empty">物流码、出库单号不能为空，请尝试重新打开当前页面！</string>
     <string name="gl_tip_status_block">当前单据状态无法删除，删除失败！</string>
+    <string name="gl_print">打印</string>
+    <string name="gl_printing">正在打印...</string>
+    <string name="gl_print_ok">打印成功</string>
+    <string name="gl_print_fail">打印失败</string>
 
     <!-- orderConfirm -->
     <string name="oc_cust_default">请选择出库客户</string>
