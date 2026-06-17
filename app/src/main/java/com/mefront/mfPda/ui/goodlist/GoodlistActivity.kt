@@ -169,7 +169,7 @@ class GoodlistActivity : BaseActivity() {
         })
     }
 
-    // ── 打印（官方 PrinterX SDK，对齐官方 Demo） ──
+    // ── 打印（官方 PrinterX SDK） ──
 
     private fun printOrder() {
         val head = orderhead ?: run { MfUi.toast(this, "数据未加载"); return }
@@ -202,31 +202,25 @@ class GoodlistActivity : BaseActivity() {
     }
 
     private fun doPrint(api: com.sunmi.printerx.api.LineApi, paperWidthPx: Int, head: JSONObject) {
-        val is80mm = paperWidthPx >= 500
         try {
             api.initLine(BaseStyle.getStyle().setWidth(paperWidthPx))
 
-            // ── 根据纸宽选参数 ──
-            val colsArr: IntArray
-            val detailTextSize: Int
-            val headerTextSize: Int
-            if (is80mm) {
-                // 80mm(576px): 规格给一点给箱码，字体大一些
-                colsArr = intArrayOf(1, 2, 1, 3, 1)
-                detailTextSize = 20
-                headerTextSize = 24
-            } else {
-                // 58mm(384px): 明细列标题和内容都大一点，互相有间距
-                colsArr = intArrayOf(1, 2, 2, 3, 1)
-                detailTextSize = 16
-                headerTextSize = 20
-            }
+            // ── 列宽比例：7列（序号/箱码/产品名称/spacer/规格/spacer/规格2） ──
+            // 序号缩小给箱码，spacer在产品名称↔规格、规格↔规格2之间留缝隙
+            val colsArr = intArrayOf(4, 24, 16, 1, 24, 1, 8)
+            val is80mm = paperWidthPx >= 500
+            val detailTextSize = if (is80mm) 20 else 16
+            val headerTextSize = if (is80mm) 24 else 20
+
             val fontHeader = TextStyle.getStyle().setTextSize(headerTextSize)
+            // 内容列样式
+            val colLeft = TextStyle.getStyle().setAlign(Align.LEFT).setTextSize(detailTextSize).setTextSpace(1)
             val colCenter = TextStyle.getStyle().setAlign(Align.CENTER).setTextSize(detailTextSize).setTextSpace(1)
             val colCenterBold = TextStyle.getStyle().setAlign(Align.CENTER).enableBold(true).setTextSize(detailTextSize + 2).setTextSpace(1)
-            val colStylesHeader = arrayOf(colCenterBold, colCenterBold, colCenterBold, colCenterBold, colCenterBold)
-            val colStylesDetail = arrayOf(colCenter, colCenter, colCenter, colCenter, colCenter)
+            val colLeftBold = TextStyle.getStyle().setAlign(Align.LEFT).enableBold(true).setTextSize(detailTextSize + 2).setTextSpace(1)
+            val spacerStyle = TextStyle.getStyle().setTextSize(1)
 
+            // ── 表头（左对齐） ──
             api.initLine(BaseStyle.getStyle().setWidth(paperWidthPx).setAlign(Align.LEFT))
             api.printText("单据编号: ${head.optString("Code", "")}", fontHeader)
             api.printText("客户代码: ${head.optString("CusCode", "")}", fontHeader)
@@ -234,14 +228,21 @@ class GoodlistActivity : BaseActivity() {
             api.printText("日期: ${head.optString("MakeDate", "")}", fontHeader)
             api.printText("类型: ${head.optString("BillType", "")}", fontHeader)
 
+            // ── 分隔线 ──
             api.printDividingLine(DividingLine.EMPTY, 6)
             api.printDividingLine(DividingLine.DOTTED, 2)
             api.printDividingLine(DividingLine.EMPTY, 6)
 
+            // ── 列标题：序号竖排两行（"序"左对齐与表头"类"对齐） ──
             api.printTexts(
-                arrayOf("序号", "箱码", "产品名称", "规格", "规格2"),
-                colsArr, colStylesHeader
+                arrayOf("序", "箱码", "产品名称", "", "规格", "", "规格2"),
+                colsArr, arrayOf(colLeftBold, colCenterBold, colCenterBold, spacerStyle, colCenterBold, spacerStyle, colCenterBold)
             )
+            api.printTexts(
+                arrayOf("号", "", "", "", "", "", ""),
+                colsArr, arrayOf(colLeftBold, spacerStyle, spacerStyle, spacerStyle, spacerStyle, spacerStyle, spacerStyle)
+            )
+
             // 列标题和明细内容之间留间距
             api.printDividingLine(DividingLine.EMPTY, 4)
 
@@ -252,17 +253,20 @@ class GoodlistActivity : BaseActivity() {
                         (i + 1).toString(),
                         o.optString("ScanCode", ""),
                         o.optString("Name", ""),
+                        "",
                         o.optString("Spec", ""),
+                        "",
                         o.optString("Spec2", "")
                     ),
-                    colsArr, colStylesDetail
+                    colsArr,
+                    arrayOf(colLeft, colCenter, colCenter, spacerStyle, colCenter, spacerStyle, colCenter)
                 )
                 if (i < list.size - 1) api.printDividingLine(DividingLine.EMPTY, 4)
             }
 
             api.printDividingLine(DividingLine.EMPTY, 6)
             api.printDividingLine(DividingLine.DOTTED, 2)
-            api.printDividingLine(DividingLine.EMPTY, 80)  // 底部留1cm空白
+            api.printDividingLine(DividingLine.EMPTY, 80)
             api.autoOut()
 
             MfUi.toast(this@GoodlistActivity, R.string.gl_print_ok)
