@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/bg_page"
+    android:orientation="vertical">
+
+    <include layout="@layout/toolbar" />
+
+    <Button
+        android:id="@+id/btn_new_refund"
+        style="@style/MfButton.Green"
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/btn_height"
+        android:layout_marginStart="20dp"
+        android:layout_marginTop="12dp"
+        android:layout_marginEnd="20dp"
+        android:layout_marginBottom="8dp"
+        android:text="@string/rl_btn_new" />
+
+    <com.google.android.material.tabs.TabLayout
+        android:id="@+id/tab"
+        style="@style/MfTab"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/bg_card" />
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/list"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+
+        <include
+            android:id="@+id/loading_box"
+            layout="@layout/include_loading" />
+
+        <include
+            android:id="@+id/tv_empty"
+            layout="@layout/include_empty" />
+    </FrameLayout>
+</LinearLayout>

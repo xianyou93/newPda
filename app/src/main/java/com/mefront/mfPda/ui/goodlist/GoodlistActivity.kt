@@ -213,7 +213,7 @@ class GoodlistActivity : BaseActivity() {
             if (is80mm) {
                 // 80mm(576px): 规格给一点给箱码，字体大一些
                 colsArr = intArrayOf(1, 2, 1, 3, 1)
-                detailTextSize = 22
+                detailTextSize = 20
                 headerTextSize = 24
             } else {
                 // 58mm(384px): 明细列标题和内容都大一点，互相有间距

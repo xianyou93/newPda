@@ -11,6 +11,7 @@ import com.mefront.mfPda.ui.addressManager.AddressManagerActivity
 import com.mefront.mfPda.ui.manager.ManagerActivity
 import com.mefront.mfPda.ui.orderConfirm.OrderConfirmActivity
 import com.mefront.mfPda.ui.ordertotal.OrdertotalActivity
+import com.mefront.mfPda.ui.refund.RefundListActivity
 import com.mefront.mfPda.util.Log
 
 /**
@@ -48,6 +49,9 @@ class MimeActivity : BaseActivity() {
         }
         b.menuCustomer.setOnClickListener {
             startActivity(Intent(this, AddressManagerActivity::class.java))
+        }
+        b.menuRefund.setOnClickListener {
+            startActivity(Intent(this, RefundListActivity::class.java))
         }
     }
 

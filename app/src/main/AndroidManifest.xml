@@ -53,5 +53,8 @@
         <activity android:name=".ui.receiveDetail.ReceiveDetailActivity" android:exported="false" />
         <activity android:name=".ui.addressManager.AddressManagerActivity" android:exported="false" />
         <activity android:name=".ui.addressAdd.AddressAddActivity" android:exported="false" />
+        <activity android:name=".ui.refund.RefundListActivity" android:exported="false" />
+        <activity android:name=".ui.refund.RefundConfirmActivity" android:exported="false" />
+        <activity android:name=".ui.refund.RefundDetailActivity" android:exported="false" />
     </application>
 </manifest>

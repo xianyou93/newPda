@@ -156,6 +156,44 @@
                     android:background="@color/bg_line" />
 
                 <LinearLayout
+                    android:id="@+id/menu_refund"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:background="?attr/selectableItemBackground"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:padding="16dp">
+
+                    <ImageView
+                        android:layout_width="32dp"
+                        android:layout_height="32dp"
+                        android:contentDescription="@null"
+                        android:src="@drawable/ic_mime_add" />
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="16dp"
+                        android:layout_weight="1"
+                        android:text="@string/menu_refund"
+                        android:textColor="@color/text_primary"
+                        android:textSize="@dimen/text_h2" />
+
+                    <ImageView
+                        android:layout_width="16dp"
+                        android:layout_height="16dp"
+                        android:contentDescription="@null"
+                        android:rotation="180"
+                        android:src="@drawable/ic_back"
+                        app:tint="@color/text_hint" />
+                </LinearLayout>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="0.5dp"
+                    android:background="@color/bg_line" />
+
+                <LinearLayout
                     android:id="@+id/menu_customer"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"

@@ -31,6 +31,8 @@
     <string name="menu_all_outstock">全部出库单</string>
     <string name="menu_new_outstock">新增出库</string>
     <string name="menu_all_customer">全部客户</string>
+    <string name="menu_refund">美丰退货</string>
+    <string name="menu_new_refund">新增退货</string>
 
     <!-- manager -->
     <string name="manager_avatar">头像</string>
@@ -91,6 +93,8 @@
     <string name="oc_btn_save">保存</string>
     <string name="oc_btn_paste">粘贴并导入</string>
     <string name="oc_btn_faststock">查询收货单出库</string>
+    <string name="oc_btn_confirm">确认</string>
+    <string name="oc_cancel">取消</string>
     <string name="oc_save_confirm">是否进行出库？</string>
     <string name="oc_btn_stop_scan">停止扫码</string>
     <string name="oc_btn_continue_scan">继续扫描</string>
@@ -155,4 +159,36 @@
     <string name="aa_data_load_fail">数据读取失败</string>
     <string name="aa_phone_err">手机号码格式错误</string>
     <string name="aa_required_mark">*必填</string>
+
+    <!-- refund -->
+    <string name="rl_title">美丰退货</string>
+    <string name="rl_tab_all">全部订单</string>
+    <string name="rl_tab_pending">待审核</string>
+    <string name="rl_btn_new">新增退货</string>
+    <string name="rl_btn_view">查看</string>
+    <string name="rl_btn_del">删除</string>
+    <string name="rl_btn_copy">复制</string>
+    <string name="rl_loading">正在加载...</string>
+    <string name="rl_ship_ok">删除成功</string>
+    <string name="rl_copy_ok">复制成功</string>
+    <string name="rl_copy_fail">复制失败</string>
+    <string name="rl_sys_err">系统异常，请联系管理员</string>
+    <string name="rl_del_confirm">确认删除该单吗？</string>
+    <string name="rl_no_data">没有数据~</string>
+    <string name="rl_state_title">退库美丰</string>
+
+    <string name="rc_title">新增退货</string>
+    <string name="rc_remark_hint">单据说明</string>
+    <string name="rc_code_repeat">条码已存在！</string>
+    <string name="rc_code_empty">提交数据为空！</string>
+    <string name="rc_code_unavail">条码不存在或不归属本公司，请检查！</string>
+    <string name="rc_code_not_received">请先确认收货，然后在进行退货！</string>
+    <string name="rc_save_ok">退货保存成功</string>
+    <string name="rc_save_fail">保存失败</string>
+
+    <string name="rd_title">退货详情</string>
+    <string name="rd_loading">正在加载...</string>
+    <string name="rd_copy_ok">复制成功</string>
+    <string name="rd_copy_fail">复制失败</string>
+    <string name="rd_sys_err">系统异常，请联系管理员</string>
 </resources>

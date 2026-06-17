@@ -427,6 +427,24 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
            ← 自动切纸
 ```
 
+### 5.16 v2026-06-17 美丰退货功能完整移植（v1.4.0）
+
+**移植内容**：微信小程序「美丰退货」完整移植到 PDA，包含 3 个页面，复用商米扫码 AIDL。
+
+| # | 模块 | 改动 |
+|---|------|------|
+| 63 | 退货列表 | `RefundListActivity` + 布局，Tab 全部/待审核，查看/删除/复制条码，分页防竞态 |
+| 64 | 退货录入 | `RefundConfirmActivity` + 布局，商米扫码录入+手动输入，保存退货单 |
+| 65 | 退货详情 | `RefundDetailActivity` + 布局，查看明细+复制全部条码 |
+| 66 | 菜单入口 | MimeActivity 添加「美丰退货」菜单项 |
+| 67 | 打印优化 | 80mm 明细字体 22→20px |
+
+**Bug 修复**：
+- Android 14 广播注册缺 `RECEIVER_EXPORTED` 标志导致扫码收不到结果
+- 物理扫码键击穿提示框（缺按钮 focusable=false + onKeyListener 拦截）
+- `saveorder` 参数 `List.toString()` 不带引号导致 SQL 查不到数据
+- 扫码时 `showLoading` 闪烁黑影
+
 ## 五-B、Bug 排查方法论
 
 查 bug 必须三层联动，逐字逐句看代码：
@@ -458,6 +476,7 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 
 1. ~~第一步不接扫码硬件~~。**已实现**，见 5.12。
 2. ~~第二步未接打印~~。**已实现**，见 5.15。
+3. **美丰退货已移植**，见 5.16。
 3. **App 图标已更换**为美丰客户中心正式图标。原图源文件在 `wxxxc/美丰客户中心图标修改.png`，生成到 `mipmap-*dpi/` 各分辨率。
 4. **t_wxLoginInfo 表里 PDA 这条记录**没有——后端 `t_logInfo` 写日志时 `wxTableId` 字段会为空串。不影响功能。
 
