@@ -63,6 +63,9 @@ mfPda/
 │   ├── hd/                     # JFinal 后端源码（799 文件，永不变）
 │   └── pad-newApp/             # 用户本地改后的完整 PDA 项目（已合并到主项目）
 └── .dev-env/                   # 沙箱构建环境（不提交仓库）
+
+> **注意**：OpenClaw 查看微信小程序代码的路径在 `C:\Users\chentofu\wxxcx`，
+> 包含 qd（小程序前端）和 hd（JFinal 后端）两个项目。
 ```
 
 ## 二、关键模块速查
