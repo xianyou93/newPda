@@ -521,6 +521,14 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 
 **涉及文件**：`OrderConfirmActivity.kt`、`RefundConfirmActivity.kt`
 
+### 5.20 v2026-06-18 自动登录（SharedPreferences持久化）
+
+| # | 模块 | 改动 |
+|---|------|------|
+| 79 | SplashActivity | 启动时检查 `SpCache.getCuserInfo()` 缓存，有有效数据直接进首页，无需重新登录 |
+
+**涉及文件**：`SplashActivity.kt`
+
 ## 五-B、Bug 排查方法论
 
 查 bug 必须三层联动，逐字逐句看代码：
