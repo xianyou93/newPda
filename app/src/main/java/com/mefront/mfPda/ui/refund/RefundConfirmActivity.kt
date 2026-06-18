@@ -6,12 +6,15 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.ServiceConnection
+import android.Manifest
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.os.IBinder
 import android.os.RemoteException
 import android.text.Editable
 import android.text.TextWatcher
+import android.view.inputmethod.InputMethodManager
 import android.view.LayoutInflater
 import android.view.View
 import java.text.SimpleDateFormat
@@ -27,6 +30,7 @@ import com.mefront.mfPda.base.BaseActivity
 import com.mefront.mfPda.databinding.ActivityRefundConfirmBinding
 import com.mefront.mfPda.net.ApiResponse
 import com.mefront.mfPda.net.Net
+import com.mefront.mfPda.util.LedUtil
 import com.mefront.mfPda.util.Log
 import com.mefront.mfPda.widget.MfUi
 import com.sunmi.scanner.IScanInterface
@@ -47,6 +51,7 @@ class RefundConfirmActivity : BaseActivity() {
     private var scanInterface: IScanInterface? = null
     private var scanReceiver: ScanReceiver? = null
     private var isScanning = false
+    private var isLightOn = false
     private val processingCodes = mutableSetOf<String>()
     private var lastScanBroadcastTime = 0L
     private val scanTimeoutHandler = android.os.Handler(android.os.Looper.getMainLooper())
@@ -67,15 +72,43 @@ class RefundConfirmActivity : BaseActivity() {
         // 输入框监听
         b.etCode.addTextChangedListener(object : TextWatcher {
             override fun afterTextChanged(s: Editable?) {
-                b.btnConfirm.text = if (s.isNullOrEmpty()) getString(R.string.oc_cancel) else getString(R.string.oc_btn_confirm)
+                if (isScanning) {
+                } else if (isLightOn) {
+                    b.btnConfirm.text = getString(R.string.oc_btn_light_off)
+                } else if (!s.isNullOrEmpty()) {
+                    b.btnConfirm.text = getString(R.string.oc_btn_confirm)
+                } else {
+                    b.btnConfirm.text = getString(R.string.oc_btn_light_on)
+                }
+                // 输入框空→键盘显示↓收起；有内容→显示✓完成
+                b.etCode.imeOptions = if (s.isNullOrEmpty())
+                    android.view.inputmethod.EditorInfo.IME_ACTION_NONE
+                else
+                    android.view.inputmethod.EditorInfo.IME_ACTION_DONE
+                if (isScanning && !s.isNullOrEmpty()) {
+                    Log.d("Scanner", "cleared keyboard scan input: $s")
+                    b.etCode.setText("")
+                }
             }
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
         })
 
         b.btnScan.setOnClickListener { onScanClick() }
-        b.btnConfirm.setOnClickListener { onConfirmClick() }
+        b.btnConfirm.setOnClickListener { onConfirmOrCancel() }
         b.btnSave.setOnClickListener { saveOrder() }
+
+        // 开灯/扫码期间点击输入框时提示
+        b.etCode.setOnFocusChangeListener { _, hasFocus ->
+            if (hasFocus && (isScanning || isLightOn)) {
+                b.etCode.clearFocus()
+                val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+                imm?.hideSoftInputFromWindow(b.etCode.windowToken, 0)
+                MfUi.toast(this, R.string.oc_tip_scan_light_blocked)
+            }
+        }
+
+        initLight()
 
         // 扫码服务（try-catch 防闪退，与新增出库一致）
         try { bindScannerService() } catch (e: Exception) { com.mefront.mfPda.util.Log.d("Scanner", "bind failed: ${e.message}") }
@@ -110,11 +143,63 @@ class RefundConfirmActivity : BaseActivity() {
 
     override fun onDestroy() {
         stopScan()
+        stopLight()
         scanChoiceDialog?.dismiss()
         scanChoiceDialog = null
         try { unbindScannerService() } catch (_: Exception) {}
         try { unregisterScanReceiver() } catch (_: Exception) {}
         super.onDestroy()
+    }
+
+    // ── 扫码服务 ──
+
+    // ── 权限回调 ──
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == 1001 && grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+            startLight()
+        } else if (requestCode == 1001) {
+            MfUi.toast(this, "需要相机权限才能开灯")
+        }
+    }
+
+    // ── 闪光灯控制（sysfs 优先 → CameraManager 兜底）──
+
+    private fun initLight() {
+        LedUtil.findLedPath()
+    }
+
+    private fun startLight() {
+        // 检查相机权限
+        if (!LedUtil.hasCameraPermission(this)) {
+            requestPermissions(arrayOf(Manifest.permission.CAMERA), 1001)
+            return
+        }
+        if (LedUtil.turnOn(this)) {
+            isLightOn = true
+            b.btnConfirm.text = getString(R.string.oc_btn_light_off)
+            b.btnConfirm.backgroundTintList = android.content.res.ColorStateList.valueOf(
+                resources.getColor(R.color.btn_red, null))
+        } else {
+            Log.e("Light", "startLight failed")
+            MfUi.toast(this, "开灯失败")
+        }
+    }
+
+    private fun stopLight() {
+        LedUtil.turnOff()
+        isLightOn = false
+        b.btnConfirm.backgroundTintList = android.content.res.ColorStateList.valueOf(
+            resources.getColor(R.color.btn_green, null))
+        refreshConfirmOrCancelBtn()
+    }
+
+    private fun refreshConfirmOrCancelBtn() {
+        if (!b.etCode.text.isNullOrBlank()) {
+            b.btnConfirm.text = getString(R.string.oc_btn_confirm)
+        } else {
+            b.btnConfirm.text = getString(R.string.oc_btn_light_on)
+        }
     }
 
     // ── 扫码服务 ──
@@ -157,7 +242,9 @@ class RefundConfirmActivity : BaseActivity() {
     }
 
     private fun onScanClick() {
-        if (isScanning) stopScan() else startScan()
+        if (isScanning) { stopScan(); return }
+        if (isLightOn) { MfUi.toast(this, R.string.oc_tip_scan_light_blocked); return }
+        startScan()
     }
 
     private fun startScan() {
@@ -175,9 +262,8 @@ class RefundConfirmActivity : BaseActivity() {
         b.btnScan.text = getString(R.string.oc_btn_stop_scan)
         b.btnScan.backgroundTintList = android.content.res.ColorStateList.valueOf(
             resources.getColor(R.color.btn_red, null))
-        b.etCode.isEnabled = false
-        b.btnConfirm.isEnabled = false
-        b.btnSave.isEnabled = false
+        // 锁住开灯：扫码时关掉灯光
+        if (isLightOn) stopLight()
         // 5秒无扫码自动熄光保护
         scanTimeoutHandler.removeCallbacks(scanTimeoutRunnable)
         scanTimeoutHandler.postDelayed(scanTimeoutRunnable, 5000)
@@ -189,9 +275,7 @@ class RefundConfirmActivity : BaseActivity() {
         b.btnScan.text = getString(R.string.oc_btn_scan)
         b.btnScan.backgroundTintList = android.content.res.ColorStateList.valueOf(
             resources.getColor(R.color.btn_green, null))
-        b.etCode.isEnabled = true
-        b.btnConfirm.isEnabled = true
-        b.btnSave.isEnabled = true
+        refreshConfirmOrCancelBtn()
         try { scanInterface?.stop() } catch (_: RemoteException) {}
     }
 
@@ -227,9 +311,14 @@ class RefundConfirmActivity : BaseActivity() {
 
     // ── 业务逻辑 ──
 
-    private fun onConfirmClick() {
-        if (b.btnConfirm.text.toString() == getString(R.string.oc_cancel)) {
-            b.etCode.setText("")
+    private fun onConfirmOrCancel() {
+        if (isScanning) return
+        if (isLightOn) {
+            stopLight()
+            return
+        }
+        if (b.etCode.text.isNullOrBlank()) {
+            startLight()
             return
         }
         val code = b.etCode.text.toString().trim().replace("http://yzj.mefront.com/q/", "")
@@ -336,6 +425,7 @@ class RefundConfirmActivity : BaseActivity() {
     }
 
     private fun saveOrder() {
+        if (isScanning || isLightOn) { MfUi.toast(this, R.string.oc_tip_scan_light_blocked); return }
         if (orderData.isEmpty()) { MfUi.toast(this, R.string.rc_code_empty); return }
         val codes = orderData.map { it.optString("code", "") }
         val remark = b.etRemark.text.toString().ifEmpty { "无说明" }

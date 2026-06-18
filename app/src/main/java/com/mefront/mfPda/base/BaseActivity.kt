@@ -72,7 +72,8 @@ abstract class BaseActivity : AppCompatActivity() {
         val kc = event.keyCode
         if (kc == KeyEvent.KEYCODE_BACK ||
             kc == KeyEvent.KEYCODE_VOLUME_UP ||
-            kc == KeyEvent.KEYCODE_VOLUME_DOWN) {
+            kc == KeyEvent.KEYCODE_VOLUME_DOWN ||
+            kc == KeyEvent.KEYCODE_DEL) {
             return super.dispatchKeyEvent(event)
         }
         return true

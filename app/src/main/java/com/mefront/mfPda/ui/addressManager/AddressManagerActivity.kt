@@ -31,6 +31,7 @@ class AddressManagerActivity : BaseActivity() {
     private var loading = false
     private var custName: String = ""
     private var loadVersion = 0   // 请求版本号，丢弃旧请求的响应
+    private var allowSelect = true   // 是否允许点击选中客户返回
 
     override fun title(): CharSequence = "客户管理"
 
@@ -38,6 +39,9 @@ class AddressManagerActivity : BaseActivity() {
         super.onCreate(savedInstanceState)
         b = ActivityAddressManagerBinding.inflate(layoutInflater)
         setContentView(b.root)
+
+        // 判断进入方式：菜单进入 → allowSelect=false（只读不可选）
+        allowSelect = intent.getBooleanExtra("allowSelect", true)
 
         b.tab.addTab(b.tab.newTab().setText(R.string.am_tab_enable).setTag(0))
         b.tab.addTab(b.tab.newTab().setText(R.string.am_tab_disable).setTag(1))
@@ -184,7 +188,13 @@ class AddressManagerActivity : BaseActivity() {
             val o = data[position]
             val idx = position + 1
             h.tvName.text = "$idx  ${o.optString("code", "")} ${o.optString("name", "")} ${o.optString("LegalPerson", "")}"
-            h.root.setOnClickListener { onItemClick(o) }
+            if (allowSelect) {
+                h.root.setOnClickListener { onItemClick(o) }
+            } else {
+                h.root.setOnClickListener(null)
+                h.root.isClickable = false
+                h.root.isFocusable = false
+            }
             val isEnable = currentTab == 0
             h.btnDisable.visibility = if (isEnable) View.VISIBLE else View.GONE
             h.btnDelete.visibility = if (isEnable) View.VISIBLE else View.GONE

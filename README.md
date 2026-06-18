@@ -460,6 +460,59 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 | 73 | 打印列标题 | 序号拆为两行「序」「号」，序号列左对齐与表头「类型」对齐 |
 | 74 | 打印列间距 | 产品名称↔规格、规格↔规格2 之间插入 spacer 列留 ~5px 间距 |
 
+### 5.19 v2026-06-18 第二次修复：输入框删除键 + 开灯按钮 + 表单美化
+
+**Bug 修复**：
+
+| # | 模块 | 问题 | 根因 | 修复 |
+|---|------|------|------|------|
+| 75 | 输入框删除键 | 输入防串码后键盘删除键没反应 | `BaseActivity.dispatchKeyEvent` 只放行了 BACK/音量键 | 放行 `KEYCODE_DEL` |
+| 76 | 出库/退货页按钮 | 进入页面按钮显示"取消"而非"开灯" | XML 默认 `text` 写死了 `@string/cancel` | 改为 `@string/oc_btn_light_on` |
+
+### 5.18 v2026-06-18 完整改动：删除键 + 开灯按钮 + 表单美化 + 闪光灯底层重构
+
+**Bug 修复**：
+
+| # | 模块 | 问题 | 根因 | 修复 |
+|---|------|------|------|------|
+| 75 | 输入框删除键 | 输入防串码后键盘删除键没反应 | `BaseActivity.dispatchKeyEvent` 只放行了 BACK/音量键 | 放行 `KEYCODE_DEL` |
+| 76 | 出库/退货页按钮 | 进入页面按钮显示"取消"而非"开灯" | XML 默认 `text` 写死了 `@string/cancel` | 改为 `@string/oc_btn_light_on` |
+| 77 | 菜单全部客户 | 从菜单进客户管理，客户行仍可点击选中 | `AddressManagerActivity` 无 `allowSelect` 区分 | 加 `allowSelect` 参数，菜单入口传 `false` |
+
+**开灯按钮（优化1+3）**：
+
+| 条件 | 按钮文字 | 颜色 | 行为 |
+|------|---------|------|------|
+| 输入框空 + 未开灯 + 未扫码 | 开灯 | 绿色 | 点击开闪光灯照明 |
+| 输入框有内容 | 确认 | 绿色 | 确认添加条码（不变） |
+| 已开灯 | 关灯 | 红色 | 点击关灯 |
+| 扫码中 | 禁用 | 灰色 | 不变 |
+
+- 开灯/扫码状态任一开启 → 按钮不禁用，点击弹 Toast 阻断 + 输入框 `clearFocus` + 隐藏键盘
+- 保存/粘贴/查询收货单出库/选择客户 → 检查 `isScanning || isLightOn` → Toast → return
+- 扫码时自动关灯
+- `OrderConfirmActivity` + `RefundConfirmActivity` 同步
+- 输入框空→键盘显示 ↓ 收起按钮；有内容→显示 ✓ 确认按钮
+
+**闪光灯底层重构（LedUtil）**：
+
+- 新增 `util/LedUtil.kt`：
+  - 方案一（优先）：写 sysfs（`/sys/class/leds/led_cam/brightness` 等），参考 Sunmi 官方 EaiUtil
+  - 方案二（兜底）：`CameraManager.setTorchMode()` + 300ms 重试 + 权限检查
+- 两个 Activity 去掉直接调用 `CameraManager`，统一走 `LedUtil`
+- AndroidManifest 加回 `CAMERA` 权限
+
+**表单美化（优化2）**：
+
+| 模块 | 改动 |
+|------|------|
+| 新增 `drawable/bg_form_card.xml` | 顶部表单整体圆角边框 + 1.5dp 描边 |
+| 新增 `drawable/bg_input_border.xml` | 输入框圆角 + 1dp 描边 |
+| 客户选择行 | 加右箭头 ▶ + `selectableItemBackground` 点击态 |
+| 日期/备注行 | padding 统一 16dp、文字右对齐 |
+
+**涉及文件**：`BaseActivity.kt`、`AddressManagerActivity.kt`、`MimeActivity.kt`、`OrderConfirmActivity.kt`、`RefundConfirmActivity.kt`、`LedUtil.kt`、`activity_order_confirm.xml`、`activity_refund_confirm.xml`、`strings.xml`、`AndroidManifest.xml`、`drawable/bg_input_border.xml`、`drawable/bg_form_card.xml`
+
 ## 五-B、Bug 排查方法论
 
 查 bug 必须三层联动，逐字逐句看代码：

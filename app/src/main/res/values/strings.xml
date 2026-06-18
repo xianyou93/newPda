@@ -83,6 +83,7 @@
 
     <!-- orderConfirm -->
     <string name="oc_cust_default">请选择出库客户</string>
+    <string name="oc_cust_label">选择客户</string>
     <string name="oc_date_label">业务日期</string>
     <string name="oc_billtype_ckd">出库单</string>
     <string name="oc_billtype_tkd">退库单</string>
@@ -99,7 +100,7 @@
     <string name="oc_btn_stop_scan">停止扫码</string>
     <string name="oc_btn_continue_scan">继续扫描</string>
     <string name="oc_btn_stop_scan_choice">停止扫描</string>
-    <string name="oc_tip_scan_input_blocked">请停止扫码再使用录入功能</string>
+    <string name="oc_tip_scan_input_blocked">请先关闭扫码和灯光后操作</string>
     <string name="oc_tip_code_empty">提交数据为空！</string>
     <string name="oc_tip_code_unavail">条码不可用！</string>
     <string name="oc_tip_not_received">未确认收货，请先确认收货！</string>
@@ -191,4 +192,7 @@
     <string name="rd_copy_ok">复制成功</string>
     <string name="rd_copy_fail">复制失败</string>
     <string name="rd_sys_err">系统异常，请联系管理员</string>
+    <string name="oc_btn_light_on">开灯</string>
+    <string name="oc_btn_light_off">关灯</string>
+    <string name="oc_tip_scan_light_blocked">请先关闭扫码和灯光后操作</string>
 </resources>

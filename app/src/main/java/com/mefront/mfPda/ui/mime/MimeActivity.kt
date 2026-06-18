@@ -48,7 +48,7 @@ class MimeActivity : BaseActivity() {
             startActivity(Intent(this, OrderConfirmActivity::class.java).putExtra("type", "1"))
         }
         b.menuCustomer.setOnClickListener {
-            startActivity(Intent(this, AddressManagerActivity::class.java))
+            startActivity(Intent(this, AddressManagerActivity::class.java).putExtra("allowSelect", false))
         }
         b.menuRefund.setOnClickListener {
             startActivity(Intent(this, RefundListActivity::class.java))

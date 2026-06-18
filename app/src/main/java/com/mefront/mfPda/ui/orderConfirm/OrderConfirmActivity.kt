@@ -8,12 +8,15 @@ import android.content.ServiceConnection
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.BroadcastReceiver
+import android.Manifest
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.os.IBinder
 import android.os.RemoteException
 import android.text.Editable
 import android.text.TextWatcher
+import android.view.inputmethod.InputMethodManager
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -31,6 +34,7 @@ import com.mefront.mfPda.ui.addressManager.AddressManagerActivity
 import com.mefront.mfPda.ui.receiveList.ReceiveListActivity
 import com.mefront.mfPda.ui.ordertotal.OrdertotalActivity
 import com.mefront.mfPda.util.DateUtil
+import com.mefront.mfPda.util.LedUtil
 import com.mefront.mfPda.widget.MfUi
 import com.sunmi.scanner.IScanInterface
 import org.json.JSONArray
@@ -67,6 +71,7 @@ class OrderConfirmActivity : BaseActivity() {
     private var scanInterface: IScanInterface? = null
     private var scanReceiver: ScanReceiver? = null
     private var isScanning = false
+    private var isLightOn = false
     private val processingCodes = mutableSetOf<String>()  // 防止键盘+广播双重处理
     private var lastScanBroadcastTime = 0L  // 最近收到广播的时间戳，用于拦截键盘 Enter
     private val scanTimeoutHandler = android.os.Handler(android.os.Looper.getMainLooper())
@@ -102,7 +107,21 @@ class OrderConfirmActivity : BaseActivity() {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
             override fun afterTextChanged(s: Editable?) {
-                b.btnConfirmOrCancel.text = if (!s.isNullOrEmpty()) "确认" else "取消"
+                // 输入框有内容 → 确认；空输入+未开灯+未扫码 → 开灯；其余状态保持按钮原有文字
+                if (isScanning) {
+                    // 扫码中，按钮文字由扫码状态控制
+                } else if (isLightOn) {
+                    b.btnConfirmOrCancel.text = getString(R.string.oc_btn_light_off)
+                } else if (!s.isNullOrEmpty()) {
+                    b.btnConfirmOrCancel.text = getString(R.string.oc_btn_confirm)
+                } else {
+                    b.btnConfirmOrCancel.text = getString(R.string.oc_btn_light_on)
+                }
+                // 输入框空→键盘显示↓收起；有内容→显示✓完成
+                b.etInput.imeOptions = if (s.isNullOrEmpty())
+                    android.view.inputmethod.EditorInfo.IME_ACTION_NONE
+                else
+                    android.view.inputmethod.EditorInfo.IME_ACTION_DONE
                 // 扫码期间：商米键盘输出模式可能向输入框键入条码文本，需要清空以防重复处理
                 if (isScanning && !s.isNullOrEmpty()) {
                     com.mefront.mfPda.util.Log.d("Scanner", "cleared keyboard scan input: $s")
@@ -110,10 +129,10 @@ class OrderConfirmActivity : BaseActivity() {
                 }
             }
         })
-        // 扫码期间拦截 Enter 键（防止商米扫码键盘输出模式误触发确认动作）
+        // 扫码/开灯期间拦截 Enter 键（防止商米扫码键盘输出模式误触发确认动作）
         b.etInput.setOnEditorActionListener { _, actionId, event ->
-            if (isScanning) {
-                com.mefront.mfPda.util.Log.d("Scanner", "blocked editor action while scanning")
+            if (isScanning || isLightOn) {
+                com.mefront.mfPda.util.Log.d("Scanner", "blocked editor action while scanning/light")
                 true
             } else if (System.currentTimeMillis() - lastScanBroadcastTime < 500) {
                 // 广播刚收到扫码结果，键盘输出的 Enter 可能还在队列中，拦截
@@ -122,6 +141,12 @@ class OrderConfirmActivity : BaseActivity() {
                 true
             } else if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_DONE ||
                 event?.keyCode == android.view.KeyEvent.KEYCODE_ENTER) {
+                // 输入框为空时，不执行确认/开灯，只隐藏键盘
+                if (b.etInput.text.isNullOrBlank()) {
+                    val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+                    imm?.hideSoftInputFromWindow(b.etInput.windowToken, 0)
+                    return@setOnEditorActionListener true
+                }
                 onConfirmOrCancel()
                 true
             } else {
@@ -129,14 +154,25 @@ class OrderConfirmActivity : BaseActivity() {
             }
         }
 
-        // 扫码期间点击输入框时提示
+        // 扫码/开灯期间点击输入框时提示
         b.etInput.setOnFocusChangeListener { _, hasFocus ->
-            if (hasFocus && isScanning) {
+            if (hasFocus && (isScanning || isLightOn)) {
                 b.etInput.clearFocus()
-                MfUi.toast(this, R.string.oc_tip_scan_input_blocked)
+                val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+                imm?.hideSoftInputFromWindow(b.etInput.windowToken, 0)
+                MfUi.toast(this, R.string.oc_tip_scan_light_blocked)
             }
         }
-        b.btnConfirmOrCancel.setOnClickListener { onConfirmOrCancel() }
+        b.btnConfirmOrCancel.setOnClickListener {
+            if (isScanning) return@setOnClickListener
+            if (isLightOn) {
+                stopLight()
+            } else if (b.etInput.text.isNullOrBlank()) {
+                startLight()
+            } else {
+                onConfirmOrCancel()
+            }
+        }
         b.btnScan.setOnClickListener { onScanClick() }
         b.btnPaste.setOnClickListener { pasteAndImport() }
         b.btnSave.setOnClickListener { saveOrder() }
@@ -160,6 +196,7 @@ class OrderConfirmActivity : BaseActivity() {
             SpCache.clearOrderDraft()
         }
 
+        initLight()
         // 绑定商米扫码服务 + 注册广播（try-catch 防闪退：服务不存在时 bindService 可能抛 SecurityException）
         try { bindScannerService() } catch (e: Exception) { com.mefront.mfPda.util.Log.d("Scanner", "bindService failed: ${e.message}") }
         try { registerScanReceiver() } catch (e: Exception) { com.mefront.mfPda.util.Log.d("Scanner", "registerReceiver failed: ${e.message}") }
@@ -177,11 +214,64 @@ class OrderConfirmActivity : BaseActivity() {
 
     override fun onDestroy() {
         stopScan()
+        stopLight()
         scanChoiceDialog?.dismiss()
         scanChoiceDialog = null
         unbindScannerService()
         unregisterScanReceiver()
         super.onDestroy()
+    }
+
+    // ── 扫码服务绑定 ──
+
+    // ── 权限回调 ──
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == 1001 && grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+            startLight()
+        } else if (requestCode == 1001) {
+            MfUi.toast(this, "需要相机权限才能开灯")
+        }
+    }
+
+    // ── 闪光灯控制（sysfs 优先 → CameraManager 兜底）──
+
+    private fun initLight() {
+        LedUtil.findLedPath()
+    }
+
+    private fun startLight() {
+        // 检查相机权限
+        if (!LedUtil.hasCameraPermission(this)) {
+            requestPermissions(arrayOf(Manifest.permission.CAMERA), 1001)
+            return
+        }
+        if (LedUtil.turnOn(this)) {
+            isLightOn = true
+            b.btnConfirmOrCancel.text = getString(R.string.oc_btn_light_off)
+            b.btnConfirmOrCancel.backgroundTintList = android.content.res.ColorStateList.valueOf(
+                resources.getColor(R.color.btn_red, null))
+        } else {
+            com.mefront.mfPda.util.Log.e("Light", "startLight failed")
+            MfUi.toast(this, "开灯失败")
+        }
+    }
+
+    private fun stopLight() {
+        LedUtil.turnOff()
+        isLightOn = false
+        b.btnConfirmOrCancel.backgroundTintList = android.content.res.ColorStateList.valueOf(
+            resources.getColor(R.color.btn_green, null))
+        refreshConfirmOrCancelBtn()
+    }
+
+    private fun refreshConfirmOrCancelBtn() {
+        // 根据当前输入框内容恢复按钮文字
+        if (!b.etInput.text.isNullOrBlank()) {
+            b.btnConfirmOrCancel.text = getString(R.string.oc_btn_confirm)
+        } else {
+            b.btnConfirmOrCancel.text = getString(R.string.oc_btn_light_on)
+        }
     }
 
     // ── 扫码服务绑定 ──
@@ -253,10 +343,8 @@ class OrderConfirmActivity : BaseActivity() {
         b.btnScan.text = getString(R.string.oc_btn_stop_scan)
         b.btnScan.backgroundTintList = android.content.res.ColorStateList.valueOf(
             resources.getColor(R.color.btn_red, null))
-        b.etInput.isEnabled = false
-        b.btnConfirmOrCancel.isEnabled = false
-        b.btnPaste.isEnabled = false
-        b.btnSave.isEnabled = false
+        // 锁住开灯：扫码时关掉灯光
+        if (isLightOn) stopLight()
         // 5秒无扫码自动熄光保护
         scanTimeoutHandler.removeCallbacks(scanTimeoutRunnable)
         scanTimeoutHandler.postDelayed(scanTimeoutRunnable, 5000)
@@ -269,11 +357,8 @@ class OrderConfirmActivity : BaseActivity() {
         b.btnScan.text = getString(R.string.oc_btn_scan)
         b.btnScan.backgroundTintList = android.content.res.ColorStateList.valueOf(
             resources.getColor(R.color.btn_green, null))
-        // 恢复输入框 + 按钮
-        b.etInput.isEnabled = true
-        b.btnConfirmOrCancel.isEnabled = true
-        b.btnPaste.isEnabled = true
-        b.btnSave.isEnabled = true
+        // 恢复 btnConfirmOrCancel 文字
+        refreshConfirmOrCancelBtn()
         try { scanInterface?.stop() } catch (e: RemoteException) { e.printStackTrace() }
     }
 
@@ -335,6 +420,10 @@ class OrderConfirmActivity : BaseActivity() {
     }
 
     private fun goPickCustomer() {
+        if (isScanning || isLightOn) {
+            MfUi.toast(this, R.string.oc_tip_scan_light_blocked)
+            return
+        }
         startActivity(Intent(this, AddressManagerActivity::class.java))
     }
 
@@ -543,9 +632,9 @@ class OrderConfirmActivity : BaseActivity() {
     }
 
     private fun pasteAndImport() {
-        // 扫码期间禁用
-        if (isScanning) {
-            MfUi.toast(this, R.string.oc_tip_scan_input_blocked)
+        // 扫码/开灯期间禁用
+        if (isScanning || isLightOn) {
+            MfUi.toast(this, R.string.oc_tip_scan_light_blocked)
             return
         }
         MfUi.showLoading(this, "导入中...")
@@ -600,9 +689,9 @@ class OrderConfirmActivity : BaseActivity() {
     }
 
     private fun saveOrder() {
-        // 扫码期间禁用
-        if (isScanning) {
-            MfUi.toast(this, R.string.oc_tip_scan_input_blocked)
+        // 扫码/开灯期间禁用
+        if (isScanning || isLightOn) {
+            MfUi.toast(this, R.string.oc_tip_scan_light_blocked)
             return
         }
         val cust = SpCache.getCustom()
@@ -653,6 +742,10 @@ class OrderConfirmActivity : BaseActivity() {
     }
 
     private fun fastStock() {
+        if (isScanning || isLightOn) {
+            MfUi.toast(this, R.string.oc_tip_scan_light_blocked)
+            return
+        }
         MfUi.confirm(this, getString(R.string.oc_faststock_confirm), onConfirm = {
             startActivity(Intent(this, ReceiveListActivity::class.java))
         })

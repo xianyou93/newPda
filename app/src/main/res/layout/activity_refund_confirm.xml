@@ -7,12 +7,13 @@
 
     <include layout="@layout/toolbar" />
 
-    <!-- 顶部表单：日期、备注 -->
+    <!-- 顶部表单：卡片边框 -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="@color/bg_card"
-        android:orientation="vertical">
+        android:background="@drawable/bg_form_card"
+        android:orientation="vertical"
+        android:layout_margin="8dp">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -110,7 +111,7 @@
                 android:layout_width="0dp"
                 android:layout_height="40dp"
                 android:layout_weight="1"
-                android:background="@drawable/et_underline"
+                android:background="@drawable/bg_input_border"
                 android:hint="@string/oc_input_hint"
                 android:imeOptions="actionDone"
                 android:inputType="text"
@@ -138,7 +139,7 @@
                 android:layout_marginStart="8dp"
                 android:minWidth="0dp"
                 android:padding="0dp"
-                android:text="@string/oc_btn_confirm"
+                android:text="@string/oc_btn_light_on"
                 android:textSize="@dimen/text_small" />
         </LinearLayout>
 
