@@ -534,6 +534,7 @@ class OrderConfirmActivity : BaseActivity() {
                             orderData.add(o)
                             SpCache.setOrderData(codeList.toList())
                             b.list.adapter?.notifyDataSetChanged()
+                            b.list.smoothScrollToPosition(orderData.size - 1)
                             b.etInput.setText("")
                         }
                     }

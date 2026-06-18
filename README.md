@@ -513,6 +513,14 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 
 **涉及文件**：`BaseActivity.kt`、`AddressManagerActivity.kt`、`MimeActivity.kt`、`OrderConfirmActivity.kt`、`RefundConfirmActivity.kt`、`LedUtil.kt`、`activity_order_confirm.xml`、`activity_refund_confirm.xml`、`strings.xml`、`AndroidManifest.xml`、`drawable/bg_input_border.xml`、`drawable/bg_form_card.xml`
 
+### 5.19 v2026-06-18 扫码列表自动滚动到底部
+
+| # | 模块 | 改动 |
+|---|------|------|
+| 78 | 出库页+退货页 | 扫码添加条码后，列表自动滚动到最新条目 | `b.list.smoothScrollToPosition(data.size - 1)` |
+
+**涉及文件**：`OrderConfirmActivity.kt`、`RefundConfirmActivity.kt`
+
 ## 五-B、Bug 排查方法论
 
 查 bug 必须三层联动，逐字逐句看代码：

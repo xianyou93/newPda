@@ -354,6 +354,7 @@ class RefundConfirmActivity : BaseActivity() {
                     savedCodes.add(code)
                     b.etCode.setText("")
                     b.list.adapter?.notifyDataSetChanged()
+                    b.list.smoothScrollToPosition(orderData.size - 1)
                 }
                 // 连续扫码在ScanReceiver里统一处理，这里只处理数据
             }
