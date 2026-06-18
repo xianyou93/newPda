@@ -24,6 +24,7 @@ import android.widget.Button
 import android.widget.TextView
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.google.android.material.datepicker.MaterialDatePicker
 import com.mefront.mfPda.R
 import com.mefront.mfPda.base.BaseActivity
 import com.mefront.mfPda.data.SpCache
@@ -410,13 +411,21 @@ class OrderConfirmActivity : BaseActivity() {
                 day = parts[2].toInt()
             } catch (_: NumberFormatException) {}
         }
-        val dlg = android.app.DatePickerDialog(this, { _, y, m, d ->
-            date = String.format("%04d-%02d-%02d", y, m + 1, d)
+        cal.set(year, month, day)
+
+        val datePicker = MaterialDatePicker.Builder.datePicker()
+            .setTitleText("选择日期")
+            .setSelection(cal.timeInMillis)
+            .build()
+
+        datePicker.addOnPositiveButtonClickListener { selection ->
+            val sdf = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault())
+            sdf.timeZone = java.util.TimeZone.getTimeZone("UTC")
+            date = sdf.format(java.util.Date(selection))
             b.tvDate.text = date
-        }, year, month, day)
-        dlg.datePicker.calendarViewShown = false
-        dlg.datePicker.spinnersShown = true
-        dlg.show()
+        }
+
+        datePicker.show(supportFragmentManager, datePicker.toString())
     }
 
     private fun goPickCustomer() {

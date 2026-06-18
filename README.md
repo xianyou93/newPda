@@ -529,6 +529,14 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 
 **涉及文件**：`SplashActivity.kt`
 
+### 5.21 v2026-06-18 日期选择器升级为 MaterialDatePicker
+
+| # | 模块 | 改动 |
+|---|------|------|
+| 80 | 出库单列表+新增出库 | 日期选择从 `DatePickerDialog` 改为 `MaterialDatePicker`，点击标题栏 `< 2026年5月 >` 可切换年份/月份选择 |
+
+**涉及文件**：`OrderConfirmActivity.kt`、`OrdertotalActivity.kt`
+
 ## 五-B、Bug 排查方法论
 
 查 bug 必须三层联动，逐字逐句看代码：
