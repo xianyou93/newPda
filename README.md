@@ -564,6 +564,29 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 - 修改 `OrderConfirmActivity.kt`（移除 MaterialDatePicker 引用）
 - 修改 `OrdertotalActivity.kt`（移除 MaterialDatePicker 引用）
 
+### 5.23 v2026-06-22 扫码列表持久化草稿缓存（替代废弃的 setOrderData）
+
+| # | 模块 | 改动 |
+|---|------|------|
+| 83 | SpCache | 新增 `orderDraftCodes` / `refundDraftCodes` 两个独立缓存 key |
+| 84 | 新增出库单 | 进入时如果有草稿缓存则弹"是否有未完成出库单"，继续/取消分别处理 |
+| 85 | 美丰退货 | 同上，弹"是否有未完成退货单" |
+| 86 | 新增出库单+美丰退货 | 扫码添加/删除/保存时同步更新对应草稿缓存 |
+| 87 | 新增出库单 | 保存成功/查询收货单确认时清空草稿 |
+| 88 | 美丰退货 | 保存成功时清空草稿 |
+
+**实现内容**：
+
+- **新增出库草稿恢复**：调 `orderapi/getALLCode`（传 `goodnos` + `billtype`），按 result 分流：1=全部可用正常加载，2=部分可用加载有效部分并 Toast 提示无效箱码已清除，3=全部无效清空草稿
+- **美丰退货草稿恢复**：调 `refundOrder/getAllCode`，result 1 正常加载，否则清空+提示
+- **错误提示统一**：失败提示末尾加"缓存失效，请重新扫描"，同时清空草稿避免下次继续弹
+- **移除旧代码**：删除了废弃的 `SpCache.setOrderData()`/`savedCodes`/`firstShow`
+
+**涉及文件**：
+- 修改 `data/SpCache.kt`（新增 4 个草稿缓存方法）
+- 修改 `OrderConfirmActivity.kt`（草稿检查+恢复+同步，移除旧缓存调用）
+- 修改 `RefundConfirmActivity.kt`（草稿检查+恢复+同步，移除旧 savedCodes/firstShow）
+
 ## 五-B、Bug 排查方法论
 
 查 bug 必须三层联动，逐字逐句看代码：

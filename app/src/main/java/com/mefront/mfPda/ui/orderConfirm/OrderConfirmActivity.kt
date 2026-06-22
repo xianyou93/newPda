@@ -193,8 +193,8 @@ class OrderConfirmActivity : BaseActivity() {
         if (!billid.isNullOrBlank()) {
             loadReceiveDetail(billid)
         } else {
-            // 进入时按原 wx 行为清缓存
-            SpCache.clearOrderDraft()
+            // 从菜单主页进入 → 检查是否有未完成的草稿
+            checkOrderDraft()
         }
 
         initLight()
@@ -403,6 +403,60 @@ class OrderConfirmActivity : BaseActivity() {
         }.show()
     }
 
+    /** 检查是否有未完成的出库草稿，有则提示是否继续 */
+    private fun checkOrderDraft() {
+        val draftCodes = SpCache.getOrderDraftCodes()
+        if (draftCodes.isEmpty()) return
+        MfUi.confirm(this, "提示", "你有未完成的出库单，是否继续？",
+            onConfirm = {
+                loadDraftFromCodes(draftCodes)
+            },
+            onCancel = {
+                SpCache.clearOrderDraftCodes()
+            },
+            confirmText = "继续",
+            cancelText = "取消"
+        )
+    }
+
+    /** 从草稿条码列表加载详情（调 API 恢复） */
+    private fun loadDraftFromCodes(codes: List<String>) {
+        MfUi.showLoading(this)
+        Net.req("orderapi/getALLCode", mapOf("goodnos" to org.json.JSONArray(codes).toString(), "billtype" to billtype)) { err, res ->
+            runOnUiThread {
+                MfUi.hideLoading()
+                if (err != null || res == null) {
+                    MfUi.toast(this, "网络错误，缓存失效，请重新扫描")
+                    return@runOnUiThread
+                }
+                val r = res.result?.toString()
+                if (r == "1" || r == "2") {
+                    val arr = res.dataJson
+                    if (arr != null && arr.length() > 0) {
+                        codeList.clear()
+                        orderData.clear()
+                        for (i in 0 until arr.length()) {
+                            val o = arr.getJSONObject(i)
+                            val c = o.optString("code", "")
+                            if (c.isNotBlank()) {
+                                codeList.add(c)
+                                orderData.add(o)
+                            }
+                        }
+                        SpCache.setOrderDraftCodes(codeList.toList())
+                        b.list.adapter?.notifyDataSetChanged()
+                        b.list.smoothScrollToPosition(orderData.size - 1)
+                    }
+                    if (r == "2") MfUi.toast(this, "部分箱码已失效（可能已使用）并已清除，仅显示有效箱码")
+                } else {
+                    SpCache.clearOrderDraftCodes()
+                    val msg = if (r == "3") "无可用条码，缓存失效，请重新扫描" else (res.msg.ifBlank { "恢复失败，缓存失效，请重新扫描" })
+                    MfUi.toast(this, msg)
+                }
+            }
+        }
+    }
+
     private fun goPickCustomer() {
         if (isScanning || isLightOn) {
             MfUi.toast(this, R.string.oc_tip_scan_light_blocked)
@@ -457,7 +511,7 @@ class OrderConfirmActivity : BaseActivity() {
                                         orderData.add(o)
                                     }
                                 }
-                                SpCache.setOrderData(codeList.toList())
+                                SpCache.setOrderDraftCodes(codeList.toList())
                                 b.etInput.setText("")
                                 b.list.adapter?.notifyDataSetChanged()
                             }
@@ -516,7 +570,7 @@ class OrderConfirmActivity : BaseActivity() {
                         if (o != null) {
                             codeList.add(code)
                             orderData.add(o)
-                            SpCache.setOrderData(codeList.toList())
+                            SpCache.setOrderDraftCodes(codeList.toList())
                             b.list.adapter?.notifyDataSetChanged()
                             b.list.smoothScrollToPosition(orderData.size - 1)
                             b.etInput.setText("")
@@ -660,7 +714,7 @@ class OrderConfirmActivity : BaseActivity() {
                                 codeList.add(c); orderData.add(o)
                             }
                         }
-                        SpCache.setOrderData(codeList.toList())
+                        SpCache.setOrderDraftCodes(codeList.toList())
                         b.list.adapter?.notifyDataSetChanged()
                     }
                     if (r == "2") MfUi.toast(this, R.string.oc_tip_partial)
@@ -696,6 +750,8 @@ class OrderConfirmActivity : BaseActivity() {
                 when (res.result?.toString()) {
                     "1" -> {
                         val newBillid = res.raw.optString("NewBillID", "")
+                        // 保存成功，无论选哪个选项都清空草稿
+                        SpCache.clearOrderDraftCodes()
                         MfUi.confirm(this, getString(R.string.oc_save_confirm), onConfirm = {
                             confirmOrder(newBillid)
                         }, onCancel = {
@@ -732,6 +788,8 @@ class OrderConfirmActivity : BaseActivity() {
             return
         }
         MfUi.confirm(this, getString(R.string.oc_faststock_confirm), onConfirm = {
+            // 从收货单进入，清空当前草稿
+            SpCache.clearOrderDraftCodes()
             startActivity(Intent(this, ReceiveListActivity::class.java))
         })
     }
@@ -765,7 +823,7 @@ class OrderConfirmActivity : BaseActivity() {
             h.btnDel.setOnClickListener {
                 codeList.removeAt(position)
                 orderData.removeAt(position)
-                SpCache.setOrderData(codeList.toList())
+                SpCache.setOrderDraftCodes(codeList.toList())
                 notifyDataSetChanged()
             }
         }

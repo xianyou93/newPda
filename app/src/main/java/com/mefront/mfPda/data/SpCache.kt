@@ -30,6 +30,10 @@ object SpCache {
     private const val K_CUSTOM2 = "custom2"
     private const val K_REMARK = "remark"
 
+    // 草稿缓存 key（持久化扫码列表，页面重启可恢复）
+    private const val K_ORDER_DRAFT = "orderDraftCodes"
+    private const val K_REFUND_DRAFT = "refundDraftCodes"
+
     private lateinit var sp: SharedPreferences
     private var inited = false
 
@@ -97,6 +101,42 @@ object SpCache {
         if (v.isNullOrEmpty()) sp.edit().remove(K_REMARK).apply()
         else sp.edit().putString(K_REMARK, v).apply()
     }
+
+    /** 新增出库草稿缓存：扫码条码列表（持久化，页面重启可恢复） */
+    fun getOrderDraftCodes(): List<String> {
+        if (!inited) return emptyList()
+        val json = sp.getString(K_ORDER_DRAFT, null) ?: return emptyList()
+        return try {
+            val arr = org.json.JSONArray(json)
+            (0 until arr.length()).map { arr.getString(it) }
+        } catch (e: Throwable) { emptyList() }
+    }
+
+    fun setOrderDraftCodes(list: List<String>?) {
+        if (!inited) return
+        if (list == null) sp.edit().remove(K_ORDER_DRAFT).apply()
+        else sp.edit().putString(K_ORDER_DRAFT, org.json.JSONArray(list).toString()).apply()
+    }
+
+    fun clearOrderDraftCodes() = setOrderDraftCodes(null)
+
+    /** 美丰退货草稿缓存：扫码条码列表（持久化，页面重启可恢复） */
+    fun getRefundDraftCodes(): List<String> {
+        if (!inited) return emptyList()
+        val json = sp.getString(K_REFUND_DRAFT, null) ?: return emptyList()
+        return try {
+            val arr = org.json.JSONArray(json)
+            (0 until arr.length()).map { arr.getString(it) }
+        } catch (e: Throwable) { emptyList() }
+    }
+
+    fun setRefundDraftCodes(list: List<String>?) {
+        if (!inited) return
+        if (list == null) sp.edit().remove(K_REFUND_DRAFT).apply()
+        else sp.edit().putString(K_REFUND_DRAFT, org.json.JSONArray(list).toString()).apply()
+    }
+
+    fun clearRefundDraftCodes() = setRefundDraftCodes(null)
 
     /** 清空"单据"级别的临时缓存，与原 wx "setStorageSync('orderData', [])" + "setStorageSync('custom', '')" 等价。 */
     fun clearOrderDraft() {

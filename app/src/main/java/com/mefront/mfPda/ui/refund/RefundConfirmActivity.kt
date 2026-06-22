@@ -27,6 +27,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.mefront.mfPda.R
 import com.mefront.mfPda.base.BaseActivity
+import com.mefront.mfPda.data.SpCache
 import com.mefront.mfPda.databinding.ActivityRefundConfirmBinding
 import com.mefront.mfPda.net.ApiResponse
 import com.mefront.mfPda.net.Net
@@ -38,14 +39,9 @@ import org.json.JSONObject
 
 class RefundConfirmActivity : BaseActivity() {
 
-    companion object {
-        val savedCodes = mutableListOf<String>()
-    }
-
     private lateinit var b: ActivityRefundConfirmBinding
     private val orderData = mutableListOf<JSONObject>()
     private val codesSet = mutableSetOf<String>()
-    private var firstShow = true
 
     // 扫码相关
     private var scanInterface: IScanInterface? = null
@@ -63,6 +59,9 @@ class RefundConfirmActivity : BaseActivity() {
         super.onCreate(savedInstanceState)
         b = ActivityRefundConfirmBinding.inflate(layoutInflater)
         setContentView(b.root)
+
+        // 检查是否有未完成的退货草稿
+        checkRefundDraft()
 
         b.list.layoutManager = LinearLayoutManager(this)
         b.list.adapter = Adapter(orderData)
@@ -115,30 +114,59 @@ class RefundConfirmActivity : BaseActivity() {
         try { registerScanReceiver() } catch (e: Exception) { com.mefront.mfPda.util.Log.d("Scanner", "register failed: ${e.message}") }
     }
 
-    override fun onResume() {
-        super.onResume()
-        // onShow 逻辑：首次显示时从 storage 恢复条码列表
-        if (firstShow && savedCodes.isNotEmpty()) {
-            firstShow = false
-            Net.req("refundOrder/getAllCode", mapOf("orderData" to savedCodes.toString())) { err, res ->
-                runOnUiThread {
-                    if (err == null && res != null && res.ok) {
-                        val arr = res.dataJson
-                        if (arr != null) {
-                            orderData.clear()
-                            codesSet.clear()
-                            for (i in 0 until arr.length()) {
-                                val item = arr.getJSONObject(i)
-                                orderData.add(item)
-                                codesSet.add(item.optString("code", ""))
-                            }
-                            b.list.adapter?.notifyDataSetChanged()
+    /** 检查是否有未完成的退货草稿，有则提示是否继续 */
+    private fun checkRefundDraft() {
+        val draftCodes = SpCache.getRefundDraftCodes()
+        if (draftCodes.isEmpty()) return
+        MfUi.confirm(this, "提示", "你有未完成的退货单，是否继续？",
+            onConfirm = {
+                loadRefundDraft(draftCodes)
+            },
+            onCancel = {
+                SpCache.clearRefundDraftCodes()
+            },
+            confirmText = "继续",
+            cancelText = "取消"
+        )
+    }
+
+    /** 从草稿条码列表加载详情 */
+    private fun loadRefundDraft(codes: List<String>) {
+        MfUi.showLoading(this, getString(R.string.rl_loading))
+        Net.req("refundOrder/getAllCode", mapOf("orderData" to org.json.JSONArray(codes).toString())) { err, res ->
+            runOnUiThread {
+                MfUi.hideLoading()
+                if (err == null && res != null && (res.ok || res.partial)) {
+                    val arr = res.dataJson
+                    if (arr != null) {
+                        orderData.clear()
+                        codesSet.clear()
+                        for (i in 0 until arr.length()) {
+                            val item = arr.getJSONObject(i)
+                            orderData.add(item)
+                            codesSet.add(item.optString("code", ""))
                         }
+                        SpCache.setRefundDraftCodes(codesSet.toList())
+                        b.list.adapter?.notifyDataSetChanged()
+                        if (!res.ok) MfUi.toast(this, R.string.oc_tip_partial)
                     }
+                } else {
+                    SpCache.clearRefundDraftCodes()
+                    val baseMsg = if (err != null) {
+                        "网络错误"
+                    } else if (res != null && res.msg.isNotBlank()) {
+                        res.msg
+                    } else {
+                        "未找到对应条码信息"
+                    }
+                    MfUi.toast(this, "$baseMsg，缓存失效，请重新扫描")
                 }
             }
         }
-        firstShow = false
+    }
+
+    override fun onResume() {
+        super.onResume()
     }
 
     override fun onDestroy() {
@@ -351,7 +379,7 @@ class RefundConfirmActivity : BaseActivity() {
                 if (data != null) {
                     orderData.add(data)
                     codesSet.add(code)
-                    savedCodes.add(code)
+                    SpCache.setRefundDraftCodes(codesSet.toList())
                     b.etCode.setText("")
                     b.list.adapter?.notifyDataSetChanged()
                     b.list.smoothScrollToPosition(orderData.size - 1)
@@ -437,7 +465,7 @@ class RefundConfirmActivity : BaseActivity() {
                 if (err != null || res == null) { MfUi.toast(this, R.string.network_error); return@runOnUiThread }
                 when (res.result?.toString()) {
                     "1" -> {
-                        savedCodes.clear()
+                        SpCache.clearRefundDraftCodes()
                         val msg = res.raw.optString("Msg", "")
                         if (msg.isNotEmpty()) {
                             MfUi.confirm(this, msg, onConfirm = {
@@ -482,6 +510,7 @@ class RefundConfirmActivity : BaseActivity() {
             h.btnDel.setOnClickListener {
                 data.removeAt(position)
                 codesSet.remove(o.optString("code", ""))
+                SpCache.setRefundDraftCodes(codesSet.toList())
                 notifyDataSetChanged()
             }
         }
