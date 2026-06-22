@@ -182,7 +182,7 @@ class GoodlistActivity : BaseActivity() {
 
         val api = mPrinter?.lineApi() ?: run { MfUi.toast(this, "打印服务不可用"); return }
 
-        MfUi.toast(this, getString(R.string.gl_printing))
+        // MfUi.toast(this, getString(R.string.gl_printing)) 移到 doPrint 中
 
         try {
             // ── 弹出选择纸仓大小 ──
@@ -203,11 +203,12 @@ class GoodlistActivity : BaseActivity() {
 
     private fun doPrint(api: com.sunmi.printerx.api.LineApi, paperWidthPx: Int, head: JSONObject) {
         try {
+            MfUi.toast(this, getString(R.string.gl_printing))
             api.initLine(BaseStyle.getStyle().setWidth(paperWidthPx))
 
             // ── 列宽比例：7列（序号/箱码/产品名称/spacer/规格/spacer/规格2） ──
-            // 序号缩小给箱码，spacer在产品名称↔规格、规格↔规格2之间留缝隙
-            val colsArr = intArrayOf(4, 24, 16, 1, 24, 1, 8)
+            // 列宽: 序号/箱码/spacer/产品名(4中文)/spacer/规格(3)/spacer/规格2(1)
+            val colsArr = intArrayOf(4, 18, 1, 11, 1, 31, 1, 11)
             val is80mm = paperWidthPx >= 500
             val detailTextSize = if (is80mm) 20 else 16
             val headerTextSize = if (is80mm) 24 else 20
@@ -235,12 +236,12 @@ class GoodlistActivity : BaseActivity() {
 
             // ── 列标题：序号竖排两行（"序"左对齐与表头"类"对齐） ──
             api.printTexts(
-                arrayOf("序", "箱码", "产品名称", "", "规格", "", "规格2"),
-                colsArr, arrayOf(colLeftBold, colCenterBold, colCenterBold, spacerStyle, colCenterBold, spacerStyle, colCenterBold)
+                arrayOf("序", "箱码", "", "产品名称", "", "规格", "", "规格2"),
+                colsArr, arrayOf(colLeftBold, colCenterBold, spacerStyle, colCenterBold, spacerStyle, colCenterBold, spacerStyle, colCenterBold)
             )
             api.printTexts(
-                arrayOf("号", "", "", "", "", "", ""),
-                colsArr, arrayOf(colLeftBold, spacerStyle, spacerStyle, spacerStyle, spacerStyle, spacerStyle, spacerStyle)
+                arrayOf("号", "", "", "", "", "", "", ""),
+                colsArr, arrayOf(colLeftBold, spacerStyle, spacerStyle, spacerStyle, spacerStyle, spacerStyle, spacerStyle, spacerStyle)
             )
 
             // 列标题和明细内容之间留间距
@@ -252,6 +253,7 @@ class GoodlistActivity : BaseActivity() {
                     arrayOf(
                         (i + 1).toString(),
                         o.optString("ScanCode", ""),
+                        "",
                         o.optString("Name", ""),
                         "",
                         o.optString("Spec", ""),
@@ -259,7 +261,7 @@ class GoodlistActivity : BaseActivity() {
                         o.optString("Spec2", "")
                     ),
                     colsArr,
-                    arrayOf(colLeft, colCenter, colCenter, spacerStyle, colCenter, spacerStyle, colCenter)
+                    arrayOf(colLeft, colCenter, spacerStyle, colCenter, spacerStyle, colCenter, spacerStyle, colCenter)
                 )
                 if (i < list.size - 1) api.printDividingLine(DividingLine.EMPTY, 4)
             }

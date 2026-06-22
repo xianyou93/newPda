@@ -44,7 +44,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
-                    android:text="PDA 管理端"
+                    android:text="PDA 客户端"
                     android:textSize="14sp"
                     android:textColor="#BBFFFFFF"
                     android:letterSpacing="0.1"
