@@ -529,13 +529,40 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 
 **涉及文件**：`SplashActivity.kt`
 
-### 5.21 v2026-06-18 日期选择器升级为 MaterialDatePicker
+### 5.21 v2026-06-18 日期选择器升级为 MaterialDatePicker（⚠️ 已被 v1.5.4 替换）
 
 | # | 模块 | 改动 |
 |---|------|------|
 | 80 | 出库单列表+新增出库 | 日期选择从 `DatePickerDialog` 改为 `MaterialDatePicker`，点击标题栏 `< 2026年5月 >` 可切换年份/月份选择 |
 
-**涉及文件**：`OrderConfirmActivity.kt`、`OrdertotalActivity.kt`
+**⚠️ 已废弃**：MaterialDatePicker 在商米 V3PLUS 上存在 Bug（选择年份后月份闪烁回溯、选中日期丢失、确定按钮无响应），已回退并替换为自绘日历控件（见 5.22）。
+
+### 5.22 v2026-06-22 自绘日历控件替换 MaterialDatePicker
+
+| # | 模块 | 改动 |
+|---|------|------|
+| 81 | 新增出库 + 全部出库单列表 | 将 MaterialDatePicker 替换为自绘 `MonthCalendarDialog` |
+| 82 | widget/ | 新增 `MonthCalendarDialog.kt` + `dialog_date_picker.xml` + 配套 drawable |
+
+**实现内容**：
+
+- **月份导航**：◀ ▶ 左右箭头切换月份，月份也可点击弹出选择列表
+- **年份选择**：年份按钮带灰底 + ▾ 提示，明显可点击，点击弹出年份列表
+- **日期网格**：7 列（日 一 二 三 四 五 六），选中日高亮为橘黄色圆形，今天有绿色圆圈边框标记
+- **选中保持**：切换年份/月份后自动保留选中日（若该日不存在则取当月最后一天）
+- **手动输入**：底部 EditText 支持输入 `yyyy-MM-dd`、`yyyyMMdd` 等格式，与日历双向联动
+- **零依赖**：纯 Android 控件实现，不需要 MaterialDatePicker
+
+**涉及文件**：
+- 新建 `widget/MonthCalendarDialog.kt`
+- 新建 `res/layout/dialog_date_picker.xml`
+- 新建 `res/drawable/bg_year_btn.xml`
+- 新建 `res/drawable/bg_calendar_day.xml`
+- 新建 `res/drawable/bg_calendar_day_selected.xml`
+- 新建 `res/drawable/bg_calendar_day_today.xml`
+- 新建 `res/layout/item_calendar_day.xml`
+- 修改 `OrderConfirmActivity.kt`（移除 MaterialDatePicker 引用）
+- 修改 `OrdertotalActivity.kt`（移除 MaterialDatePicker 引用）
 
 ## 五-B、Bug 排查方法论
 

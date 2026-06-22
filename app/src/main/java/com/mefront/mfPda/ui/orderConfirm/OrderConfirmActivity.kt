@@ -24,7 +24,6 @@ import android.widget.Button
 import android.widget.TextView
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import com.google.android.material.datepicker.MaterialDatePicker
 import com.mefront.mfPda.R
 import com.mefront.mfPda.base.BaseActivity
 import com.mefront.mfPda.data.SpCache
@@ -37,6 +36,7 @@ import com.mefront.mfPda.ui.ordertotal.OrdertotalActivity
 import com.mefront.mfPda.util.DateUtil
 import com.mefront.mfPda.util.LedUtil
 import com.mefront.mfPda.widget.MfUi
+import com.mefront.mfPda.widget.MonthCalendarDialog
 import com.sunmi.scanner.IScanInterface
 import org.json.JSONArray
 import org.json.JSONObject
@@ -397,35 +397,10 @@ class OrderConfirmActivity : BaseActivity() {
     }
 
     private fun pickDate() {
-        // 从 TextView 当前文本解析日期，解析失败则用今天
-        val text = b.tvDate.text.toString()
-        val parts = text.split("-")
-        val cal = java.util.Calendar.getInstance()
-        var year = cal.get(java.util.Calendar.YEAR)
-        var month = cal.get(java.util.Calendar.MONTH)
-        var day = cal.get(java.util.Calendar.DAY_OF_MONTH)
-        if (parts.size == 3) {
-            try {
-                year = parts[0].toInt()
-                month = parts[1].toInt() - 1
-                day = parts[2].toInt()
-            } catch (_: NumberFormatException) {}
-        }
-        cal.set(year, month, day)
-
-        val datePicker = MaterialDatePicker.Builder.datePicker()
-            .setTitleText("选择日期")
-            .setSelection(cal.timeInMillis)
-            .build()
-
-        datePicker.addOnPositiveButtonClickListener { selection ->
-            val sdf = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault())
-            sdf.timeZone = java.util.TimeZone.getTimeZone("UTC")
-            date = sdf.format(java.util.Date(selection))
-            b.tvDate.text = date
-        }
-
-        datePicker.show(supportFragmentManager, datePicker.toString())
+        MonthCalendarDialog(this, b.tvDate.text.toString()) { picked ->
+            date = picked
+            b.tvDate.text = picked
+        }.show()
     }
 
     private fun goPickCustomer() {
