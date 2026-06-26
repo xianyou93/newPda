@@ -58,6 +58,17 @@ mfPda/
 │       │   ├── widget/         # MfUi（Toast/Dialog/Loading）/ MfListAdapter
 │       │   └── ui/             # 11 个 Activity
 │       └── res/                # layout / drawable / values / mipmap / xml
+├── doc/                        # 设计素材 & 商米 SDK 开发资料
+│   ├── design/                 # 启动图 / 登录页 / 图标设计参考
+│   └── sunmi/                  # 商米 SDK 文档 + 官方 Demo 源码
+│       ├── 商米接口开发文档.md
+│       ├── 打印标签小票接口.md
+│       ├── 打印热敏小票接口.md
+│       ├── 商米打印服务介绍.md
+│       ├── 摄像头扫码SDK说明.md
+│       ├── 扫码头开发及使用手册文档.md
+│       ├── 扫码头开发及用户文档.pdf
+│       └── pdademo/             # 商米官方扫码/打印 Demo 项目
 ├── .wxxxc/                     # 参考原型（不提交仓库，.gitignore 排除）
 │   ├── qd/                     # 微信小程序前端源码（49 文件）
 │   ├── hd/                     # JFinal 后端源码（799 文件，永不变）
